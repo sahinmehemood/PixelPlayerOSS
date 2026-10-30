@@ -53,15 +53,19 @@ internal object TelegramStreamAccessToken {
 
 
 internal object TelegramStreamFileSize {
+    /**
+     * Only exact sizes can be advertised as HTTP Content-Length or used for byte ranges.
+     * TdApi.File.expectedSize is approximate and must not be treated as an exact length.
+     */
     fun resolve(
-        expectedSize: Long,
+        actualSize: Long,
         hintedSize: Long,
         localFileSize: Long,
         isDownloadingCompleted: Boolean,
         maxBytes: Long,
     ): Long? {
         val candidate = when {
-            expectedSize > 0L -> expectedSize
+            actualSize > 0L -> actualSize
             hintedSize > 0L -> hintedSize
             isDownloadingCompleted && localFileSize > 0L -> localFileSize
             else -> return null
@@ -69,8 +73,8 @@ internal object TelegramStreamFileSize {
         return candidate.takeIf { it in 1..maxBytes }
     }
 
-    fun exceedsLimit(expectedSize: Long, hintedSize: Long, maxBytes: Long): Boolean =
-        expectedSize > maxBytes || (expectedSize <= 0L && hintedSize > maxBytes)
+    fun exceedsLimit(actualSize: Long, hintedSize: Long, localFileSize: Long, maxBytes: Long): Boolean =
+        actualSize > maxBytes || hintedSize > maxBytes || localFileSize > maxBytes
 }
 
 internal object TelegramByteRange {
@@ -159,18 +163,19 @@ class TelegramStreamProxy @Inject constructor(
                         val mime = call.request.queryParameters["mime"]?.takeIf { it.length <= 80 }
                             ?: "audio/mpeg"
 
-                        var fileInfo = runCatching {
+                        var fileInfo = try {
                             clientManager.sendRequest<TdApi.File>(TdApi.DownloadFile(fileId, 32, 0L, 0L, false))
-                        }.getOrElse {
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (error: Exception) {
+                            Timber.w(error, "Telegram could not start download for file %s", fileId)
                             call.respond(HttpStatusCode.BadGateway, "Telegram could not start the download")
                             return@get
                         }
                         val pathDeadline = System.currentTimeMillis() + 10_000L
                         while (fileInfo.local.path.isBlank() && System.currentTimeMillis() < pathDeadline) {
                             delay(100)
-                            fileInfo = runCatching {
-                                clientManager.sendRequest<TdApi.File>(TdApi.GetFile(fileId))
-                            }.getOrElse { fileInfo }
+                            fileInfo = refreshFileInfo(fileId, fileInfo)
                         }
                         if (fileInfo.local.path.isBlank()) {
                             call.respond(HttpStatusCode.GatewayTimeout, "Telegram did not allocate a local file")
@@ -181,9 +186,7 @@ class TelegramStreamProxy @Inject constructor(
                         val fileDeadline = System.currentTimeMillis() + 15_000L
                         while (!file.isFile && System.currentTimeMillis() < fileDeadline) {
                             delay(100)
-                            fileInfo = runCatching {
-                                clientManager.sendRequest<TdApi.File>(TdApi.GetFile(fileId))
-                            }.getOrElse { fileInfo }
+                            fileInfo = refreshFileInfo(fileId, fileInfo)
                         }
                         if (!file.isFile) {
                             call.respond(HttpStatusCode.GatewayTimeout, "Telegram did not create the local audio file")
@@ -191,8 +194,9 @@ class TelegramStreamProxy @Inject constructor(
                         }
 
                         if (TelegramStreamFileSize.exceedsLimit(
-                                fileInfo.expectedSize,
+                                fileInfo.size,
                                 hintedSize,
+                                file.length(),
                                 MAX_STREAM_BYTES,
                             )
                         ) {
@@ -201,7 +205,7 @@ class TelegramStreamProxy @Inject constructor(
                         }
 
                         var size = TelegramStreamFileSize.resolve(
-                            expectedSize = fileInfo.expectedSize,
+                            actualSize = fileInfo.size,
                             hintedSize = hintedSize,
                             localFileSize = file.length(),
                             isDownloadingCompleted = fileInfo.local.isDownloadingCompleted,
@@ -223,12 +227,10 @@ class TelegramStreamProxy @Inject constructor(
                                     break
                                 }
                                 delay(200)
-                                fileInfo = runCatching {
-                                    clientManager.sendRequest<TdApi.File>(TdApi.GetFile(fileId))
-                                }.getOrElse { fileInfo }
+                                fileInfo = refreshFileInfo(fileId, fileInfo)
                             }
                             size = TelegramStreamFileSize.resolve(
-                                expectedSize = fileInfo.expectedSize,
+                                actualSize = fileInfo.size,
                                 hintedSize = hintedSize,
                                 localFileSize = file.length(),
                                 isDownloadingCompleted = fileInfo.local.isDownloadingCompleted,
@@ -238,10 +240,11 @@ class TelegramStreamProxy @Inject constructor(
 
                         if (size == null) {
                             if (TelegramStreamFileSize.exceedsLimit(
-                                    fileInfo.expectedSize,
+                                    fileInfo.size,
                                     hintedSize,
+                                    file.length(),
                                     MAX_STREAM_BYTES,
-                                ) || file.length() > MAX_STREAM_BYTES
+                                )
                             ) {
                                 call.respond(HttpStatusCode.PayloadTooLarge, "Telegram audio file exceeds the 2 GiB streaming limit")
                             } else {
@@ -276,10 +279,7 @@ class TelegramStreamProxy @Inject constructor(
                                     if (System.currentTimeMillis() > deadline) {
                                         throw IllegalStateException("Timed out waiting for Telegram audio bytes")
                                     }
-                                    val refreshed = runCatching {
-                                        clientManager.sendRequest<TdApi.File>(TdApi.GetFile(fileId))
-                                    }.getOrNull()
-                                    if (refreshed != null) lastFileInfo = refreshed
+                                    lastFileInfo = refreshFileInfo(fileId, lastFileInfo)
 
                                     val availablePrefix = lastFileInfo.local.downloadedPrefixSize.toLong().coerceAtLeast(0L)
                                     val availableEnd = minOf(end + 1L, availablePrefix, file.length())
@@ -333,5 +333,16 @@ class TelegramStreamProxy @Inject constructor(
         return "http://127.0.0.1:$port/stream/$fileId/$streamToken?size=$safeSize&mime=$safeMime"
     }
 
+
+
+    private suspend fun refreshFileInfo(fileId: Int, previous: TdApi.File): TdApi.File =
+        try {
+            clientManager.sendRequest<TdApi.File>(TdApi.GetFile(fileId))
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            Timber.d(error, "Could not refresh Telegram file %s status yet", fileId)
+            previous
+        }
 
 }
