@@ -22,8 +22,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.CloudSync
-import androidx.compose.material.icons.rounded.Logout
+import androidx.compose.material.icons.rounded.CloudQueue
+import androidx.compose.material.icons.automirrored.rounded.Logout
+import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
@@ -106,7 +109,7 @@ private fun TelegramMusicScreen(
                             Icon(Icons.Rounded.Refresh, contentDescription = "Refresh channels")
                         }
                         IconButton(onClick = viewModel::logout, enabled = !state.isLoading) {
-                            Icon(Icons.Rounded.Logout, contentDescription = "Sign out")
+                            Icon(Icons.AutoMirrored.Rounded.Logout, contentDescription = "Sign out")
                         }
                     }
                 }
@@ -197,7 +200,7 @@ private fun TelegramMusicScreen(
                             modifier = Modifier.fillMaxWidth(),
                         )
                         Button(onClick = viewModel::addChannel, enabled = !state.isLoading, modifier = Modifier.fillMaxWidth()) {
-                            Icon(Icons.Rounded.CloudSync, contentDescription = null)
+                            Icon(Icons.Rounded.CloudQueue, contentDescription = null)
                             Spacer(Modifier.size(8.dp))
                             Text("Add and scan audio")
                         }

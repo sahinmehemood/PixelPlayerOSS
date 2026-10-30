@@ -80,6 +80,18 @@ class TelegramStreamProxy @Inject constructor(
                         }
 
                         val file = File(fileInfo.local.path)
+                        val fileDeadline = System.currentTimeMillis() + 15_000L
+                        while (!file.isFile && System.currentTimeMillis() < fileDeadline) {
+                            delay(100)
+                            fileInfo = runCatching {
+                                clientManager.sendRequest<TdApi.File>(TdApi.GetFile(fileId))
+                            }.getOrElse { fileInfo }
+                        }
+                        if (!file.isFile) {
+                            call.respond(HttpStatusCode.GatewayTimeout, "Telegram did not create the local audio file")
+                            return@get
+                        }
+
                         val size = (fileInfo.expectedSize.takeIf { it > 0L } ?: hintedSize)
                             .takeIf { it in 1..MAX_STREAM_BYTES } ?: 0L
                         if (size <= 0L) {

@@ -44,7 +44,8 @@ class TelegramRepository @Inject constructor(
             return clientManager.sendRequest<TdApi.Chat>(TdApi.GetChat(invite.chatId)).toTelegramChannel()
         }
 
-        clientManager.sendRequest<TdApi.Ok>(TdApi.ImportChatInviteLink(inviteLink))
+        val joinedChat = clientManager.sendRequest<TdApi.Chat>(TdApi.JoinChatByInviteLink(inviteLink))
+        if (joinedChat.id != 0L) return joinedChat.toTelegramChannel()
         repeat(12) {
             delay(350)
             val refreshed = runCatching {
@@ -68,10 +69,7 @@ class TelegramRepository @Inject constructor(
             clientManager.sendRequest<TdApi.Ok>(TdApi.LoadChats(TdApi.ChatListMain(), 500))
         }
         val chats = clientManager.sendRequest<TdApi.Chats>(
-            TdApi.GetChats().apply {
-                chatList = TdApi.ChatListMain()
-                limit = 500
-            }
+            TdApi.GetChats(TdApi.ChatListMain(), Long.MAX_VALUE, 0L, 500)
         )
         return chats.chatIds.mapNotNull { chatId ->
             runCatching { clientManager.sendRequest<TdApi.Chat>(TdApi.GetChat(chatId)).toTelegramChannel() }
@@ -120,7 +118,6 @@ class TelegramRepository @Inject constructor(
             is TdApi.MessageAudio -> {
                 val audio = content.audio
                 fileId = audio.audio.id
-                val fileSize = audio.audio.size.toLong()
                 title = audio.title.ifBlank { audio.fileName.substringBeforeLast('.').ifBlank { "Unknown title" } }
                 performer = audio.performer.ifBlank { "Unknown artist" }
                 durationMs = audio.duration.toLong().coerceAtLeast(0L) * 1000L
@@ -135,7 +132,6 @@ class TelegramRepository @Inject constructor(
                     setOf("mp3", "flac", "wav", "m4a", "ogg", "opus", "aac", "ape", "alac")
                 if (!looksLikeAudio) return null
                 fileId = document.document.id
-                val fileSize = document.document.size.toLong()
                 title = fileName.substringBeforeLast('.').ifBlank { "Unknown title" }
                 performer = "Unknown artist"
                 durationMs = 0L
@@ -177,7 +173,7 @@ class TelegramRepository @Inject constructor(
     }
 
     private fun TdApi.Chat.toTelegramChannel(): TelegramChannel {
-        val isChannel = type is TdApi.ChatTypeSupergroup
+        val isChannel = (type as? TdApi.ChatTypeSupergroup)?.isChannel == true
         return TelegramChannel(
             chatId = id,
             title = title.ifBlank { "Telegram chat $id" },

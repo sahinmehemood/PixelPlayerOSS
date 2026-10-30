@@ -253,7 +253,7 @@ The app does not ship shared Telegram API credentials. TDLib's account database 
 
 ### AI personalization
 
-AI personalization is disabled until configured from **Settings → Accounts → AI personalization**. It accepts an OpenAI-compatible chat-completions endpoint, model name, and your own API key. The key is stored using Android Keystore-backed encrypted preferences. When enabled, only track IDs, titles, artists, albums, genres, durations, favorite state and basic listening counts are sent to the endpoint to rank tracks from your existing library; audio files, file paths and content URIs are never sent. If the service is not configured or the request fails, Smart Mix falls back to the existing offline generator.
+AI personalization is disabled until configured from **Settings → Accounts → AI personalization**. It accepts an OpenAI-compatible chat-completions endpoint, model name, and your own API key. The key is stored using Android Keystore-backed encrypted preferences. When enabled, only track IDs, titles, artists, albums, genres, durations, favorite state, play counts and last-played recency are sent to the endpoint to rank tracks from your existing library; audio files, file paths and content URIs are never sent. If the service is not configured or the request fails, Smart Mix falls back to the existing offline generator.
 
 AI output is treated as untrusted: only IDs from the submitted local candidate list are accepted, and no new tracks are downloaded or added to the library.
 

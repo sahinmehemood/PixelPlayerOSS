@@ -217,7 +217,13 @@ class AiPersonalizationRepository @Inject constructor(
             .build()
 
         httpClient.newCall(request).execute().use { response ->
-            val body = response.body?.string().orEmpty()
+            val responseBody = response.body
+                ?: throw IllegalStateException("AI provider returned an empty response.")
+            if (responseBody.contentLength() > 1_000_000L) {
+                throw IllegalStateException("AI provider response exceeded the 1 MB safety limit.")
+            }
+            val body = responseBody.string().takeIf { it.length <= 1_000_000 }
+                ?: throw IllegalStateException("AI provider response exceeded the 1 MB safety limit.")
             if (!response.isSuccessful) {
                 val providerMessage = runCatching {
                     JSONObject(body).optJSONObject("error")?.optString("message")

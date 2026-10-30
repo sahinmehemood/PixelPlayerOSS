@@ -54,3 +54,13 @@ The Jellyfin FFmpeg decoder bundled in the APK is GPL-3.0, consistent with the P
 Run a dependency/license review again whenever `gradle/libs.versions.toml` changes.
 
 The current review notes are tracked in `docs/DEPENDENCY_LICENSES.md`.
+
+
+## Telegram integration
+
+| Artifact | Upstream | License |
+| --- | --- | --- |
+| `com.github.tdlibx:td:1.8.56` Java/Android wrapper | `https://github.com/tdlibx/td` | Apache License 2.0 |
+| Telegram Database Library (TDLib) native/runtime components | `https://github.com/tdlib/td` | Boost Software License 1.0 |
+
+The TDLib Java/Android distribution and its upstream native library are separate components with their own notices. The wrapper repository's Apache-2.0 license and upstream TDLib's Boost Software License 1.0 are retained; see each upstream repository for the complete license text.

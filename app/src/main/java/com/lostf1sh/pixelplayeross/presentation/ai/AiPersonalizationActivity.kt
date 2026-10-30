@@ -19,7 +19,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.Key
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Button
@@ -148,7 +151,7 @@ private fun AiPersonalizationScreen(
                     ) {
                         Text("Privacy and control", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         Text(
-                            "When enabled, PixelPlayer sends a limited catalogue of track titles, artists, albums, genres, durations, favourites and play counts to your chosen provider so it can rank songs for your request. Audio files, file paths, content URIs and Telegram credentials are never sent.",
+                            "When enabled, PixelPlayer sends a limited catalogue of track titles, artists, albums, genres, durations, favourites, play counts and last-played recency to your chosen provider so it can rank songs for your request. Audio files, file paths, content URIs and Telegram credentials are never sent.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
