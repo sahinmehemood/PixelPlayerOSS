@@ -234,3 +234,26 @@ Distributed APKs include third-party components under their own licenses. In par
 <p align="center">
   Logo designed by <a href="https://github.com/NPSummers">Aureal</a>.
 </p>
+
+
+## Telegram music and optional AI personalization
+
+This fork adds Telegram as an optional cloud music source. It uses TDLib's on-device database/session, phone-number verification, 2-step verification, public username lookup, private invite-link joining, joined-chat browsing, audio-message indexing, and a loopback HTTP stream proxy with byte-range support for seeking. Telegram tracks are passed to the existing Media3 playback queue as temporary items; they are not inserted into the local Room music library.
+
+### Telegram API credentials
+
+Create your own Telegram application at [my.telegram.org](https://my.telegram.org) and add the following to your local, uncommitted `local.properties` file:
+
+```properties
+TELEGRAM_API_ID=your_api_id
+TELEGRAM_API_HASH=your_api_hash
+```
+
+The app does not ship shared Telegram API credentials. TDLib's account database is stored in the app-private files directory and its database encryption key is stored using Android Keystore-backed encrypted preferences. Sign in from **Settings → Accounts → Telegram music**. You can add public usernames/links or private `t.me/+` invite links. Your Telegram account must already have access or be permitted to join.
+
+### AI personalization
+
+AI personalization is disabled until configured from **Settings → Accounts → AI personalization**. It accepts an OpenAI-compatible chat-completions endpoint, model name, and your own API key. The key is stored using Android Keystore-backed encrypted preferences. When enabled, only track IDs, titles, artists, albums, genres, durations, favorite state and basic listening counts are sent to the endpoint to rank tracks from your existing library; audio files, file paths and content URIs are never sent. If the service is not configured or the request fails, Smart Mix falls back to the existing offline generator.
+
+AI output is treated as untrusted: only IDs from the submitted local candidate list are accepted, and no new tracks are downloaded or added to the library.
+

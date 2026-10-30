@@ -3,6 +3,7 @@ package com.lostf1sh.pixelplayeross.presentation.viewmodel
 import android.content.Context
 import com.lostf1sh.pixelplayeross.R
 import com.lostf1sh.pixelplayeross.data.DailyMixManager
+import com.lostf1sh.pixelplayeross.data.ai.AiPersonalizationRepository
 import com.lostf1sh.pixelplayeross.data.model.Song
 import com.lostf1sh.pixelplayeross.data.playlist.NlpPlaylistGenerator
 import com.lostf1sh.pixelplayeross.data.playlist.nlp.MixSuggestion
@@ -52,6 +53,7 @@ enum class SmartMixTarget {
 class SmartMixStateHolder @Inject constructor(
     @ApplicationContext private val context: Context,
     private val generator: NlpPlaylistGenerator,
+    private val aiPersonalizationRepository: AiPersonalizationRepository,
     private val musicRepository: MusicRepository,
     private val dailyMixManager: DailyMixManager,
     private val playlistPreferencesRepository: PlaylistPreferencesRepository,
@@ -169,7 +171,12 @@ class SmartMixStateHolder @Inject constructor(
             // animation; cancellation cancels the timer too.
             val thinkingWindow = launch(start = CoroutineStart.UNDISPATCHED) { delay(MIX_MIN_THINKING_MS) }
             try {
-                val songs = generator.generate(prompt, length, length).distinctBy { it.id }.take(length)
+                // AI is opt-in. If it is not configured, is rate-limited, or returns invalid IDs,
+                // the existing fully-offline generator remains the reliable fallback.
+                val aiSongs = aiPersonalizationRepository.generateMix(prompt, length)
+                val songs = (aiSongs ?: generator.generate(prompt, length, length))
+                    .distinctBy { it.id }
+                    .take(length)
                 thinkingWindow.join()
                 if (requestId != mixRequestId) return@launch
                 if (songs.isEmpty()) {

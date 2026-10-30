@@ -23,6 +23,7 @@ dependencyResolutionManagement {
             content {
                 includeGroup("com.github.philburk")
                 includeGroup("com.github.racra")
+                includeGroup("com.github.tdlibx")
             }
         }
     }

@@ -85,6 +85,7 @@ profileinstaller = "1.4.1"
 
 
 [libraries]
+tdlib = { module = "com.github.tdlibx:td", version = "1.8.56" }
 accompanist-drawablepainter = { module = "com.google.accompanist:accompanist-drawablepainter", version.ref = "accompanistDrawablepainter" }
 
 lifecycleprocess = { module = "androidx.lifecycle:lifecycle-process", version.ref = "lifecycleRuntimeKtx" }

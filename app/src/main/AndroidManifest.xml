@@ -78,6 +78,20 @@
         </activity>
 
         <activity
+            android:name=".presentation.telegram.TelegramActivity"
+            android:exported="false"
+            android:label="Telegram Music"
+            android:theme="@style/Theme.PixelPlayer"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".presentation.ai.AiPersonalizationActivity"
+            android:exported="false"
+            android:label="AI Personalization"
+            android:theme="@style/Theme.PixelPlayer"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
             android:name=".presentation.navidrome.auth.NavidromeLoginActivity"
             android:exported="false"
             android:label="Navidrome Login"

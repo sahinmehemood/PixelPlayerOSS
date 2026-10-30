@@ -98,6 +98,8 @@ import com.lostf1sh.pixelplayeross.data.listenbrainz.ListenBrainzProfileStats
 import com.lostf1sh.pixelplayeross.presentation.components.CollapsibleCommonTopBar
 import com.lostf1sh.pixelplayeross.presentation.components.MiniPlayerHeight
 import com.lostf1sh.pixelplayeross.presentation.jellyfin.auth.JellyfinLoginActivity
+import com.lostf1sh.pixelplayeross.presentation.telegram.TelegramActivity
+import com.lostf1sh.pixelplayeross.presentation.ai.AiPersonalizationActivity
 import com.lostf1sh.pixelplayeross.presentation.navidrome.auth.NavidromeLoginActivity
 import com.lostf1sh.pixelplayeross.presentation.viewmodel.AccountsViewModel
 import com.lostf1sh.pixelplayeross.presentation.viewmodel.ExternalAccountUiModel
@@ -222,6 +224,45 @@ fun AccountsScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            item {
+                Card(
+                    shape = AbsoluteSmoothCornerShape(24.dp, 60),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text("Additional integrations", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text(
+                            "Connect Telegram audio sources or configure optional AI-powered mix personalization.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        FilledTonalButton(
+                            onClick = { context.startActivity(Intent(context, TelegramActivity::class.java)) },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = AbsoluteSmoothCornerShape(18.dp, 60)
+                        ) {
+                            Icon(Icons.AutoMirrored.Rounded.OpenInNew, contentDescription = null)
+                            Spacer(modifier = Modifier.size(8.dp))
+                            Text("Telegram music")
+                        }
+                        OutlinedButton(
+                            onClick = { context.startActivity(Intent(context, AiPersonalizationActivity::class.java)) },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = AbsoluteSmoothCornerShape(18.dp, 60)
+                        ) {
+                            Icon(Icons.Rounded.GraphicEq, contentDescription = null)
+                            Spacer(modifier = Modifier.size(8.dp))
+                            Text("AI personalization")
+                        }
+                    }
+                }
+            }
+
             if (uiState.connectedAccounts.isNotEmpty()) {
                 item {
                     Text(
