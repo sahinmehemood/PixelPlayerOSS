@@ -36,6 +36,12 @@ class TelegramChannelStore @Inject constructor(
         val updated = getSavedChatIds() - chatId
         secretStore.putString(SAVED_CHAT_IDS, TelegramSavedChatIdsCodec.encode(updated))
     }
+
+    @Synchronized
+    fun remove(chatId: Long) {
+        val updated = getSavedChatIds() - chatId
+        secretStore.putString(SAVED_CHAT_IDS, TelegramSavedChatIdsCodec.encode(updated))
+    }
 }
 
 internal object TelegramSavedChatIdsCodec {
