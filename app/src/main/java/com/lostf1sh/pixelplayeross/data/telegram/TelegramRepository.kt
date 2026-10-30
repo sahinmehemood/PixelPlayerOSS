@@ -17,6 +17,7 @@ import timber.log.Timber
 class TelegramRepository @Inject constructor(
     private val clientManager: TelegramClientManager,
     private val streamProxy: TelegramStreamProxy,
+    private val channelStore: TelegramChannelStore,
 ) {
     val authorizationState = clientManager.authorizationState
     val initializationError = clientManager.initializationError
@@ -52,7 +53,7 @@ class TelegramRepository @Inject constructor(
 
     suspend fun addChannel(input: String): TelegramChannel {
         check(clientManager.awaitReady()) { "Sign in to Telegram before adding a channel." }
-        return when (val target = TelegramLinkParser.parse(input)) {
+        val channel = when (val target = TelegramLinkParser.parse(input)) {
             is TelegramChannelTarget.PublicUsername -> {
                 val chat = clientManager.sendRequest<TdApi.Chat>(
                     TdApi.SearchPublicChat(target.username)
@@ -61,6 +62,14 @@ class TelegramRepository @Inject constructor(
             }
             is TelegramChannelTarget.PrivateInviteLink -> joinPrivateInvite(target.inviteLink)
         }
+        // Public channels can be browsed without joining them. Save the chat ID
+        // separately so they remain visible in PixelPlayer after this screen closes.
+        channelStore.save(channel.chatId)
+        return channel.copy(isSaved = true)
+    }
+
+    fun removeSavedChannel(chatId: Long) {
+        channelStore.remove(chatId)
     }
 
     private suspend fun joinPrivateInvite(inviteLink: String): TelegramChannel {
@@ -108,10 +117,11 @@ class TelegramRepository @Inject constructor(
             TdApi.ChatListMain(),
             TdApi.ChatListArchive(),
         )
-        val chatsById = linkedMapOf<Long, TdApi.Chat>()
+        val chatIds = linkedSetOf<Long>()
+
         chatLists.forEach { chatList ->
-            // LoadChats may report that a list is already fully loaded. That is not a
-            // reason to skip GetChats; the locally cached list is still readable.
+            // LoadChats may report that a list is already fully loaded. The cached
+            // list remains readable through GetChats even when loading is skipped.
             try {
                 clientManager.sendRequest<TdApi.Ok>(TdApi.LoadChats(chatList, 500))
             } catch (cancelled: CancellationException) {
@@ -127,36 +137,40 @@ class TelegramRepository @Inject constructor(
             } catch (error: Exception) {
                 Timber.d(error, "Could not read one Telegram chat list")
                 null
-            } ?: return@forEach
+            }
+            chats?.chatIds?.forEach(chatIds::add)
+        }
 
-            // TDLib requests are independent, but resolving hundreds of chats
-            // serially makes the first screen load unnecessarily slow. Keep a small
-            // concurrency bound so we speed up discovery without flooding TDLib.
-            val semaphore = Semaphore(CHAT_RESOLUTION_CONCURRENCY)
-            val resolvedChats = coroutineScope {
-                chats.chatIds.distinct().map { chatId ->
-                    async {
-                        semaphore.withPermit {
-                            try {
-                                clientManager.sendRequest<TdApi.Chat>(TdApi.GetChat(chatId))
-                            } catch (cancelled: CancellationException) {
-                                throw cancelled
-                            } catch (error: Exception) {
-                                Timber.d(error, "Could not resolve Telegram chat %s", chatId)
-                                null
-                            }
+        val savedChatIds = channelStore.getSavedChatIds()
+        chatIds.addAll(savedChatIds)
+
+        // Resolve the union of joined, archived and explicitly saved public channels
+        // once, with bounded concurrency. This avoids duplicate TDLib lookups and
+        // keeps public channels visible even when the user has not joined them.
+        val semaphore = Semaphore(CHAT_RESOLUTION_CONCURRENCY)
+        val resolvedChats = coroutineScope {
+            chatIds.map { chatId ->
+                async {
+                    semaphore.withPermit {
+                        try {
+                            clientManager.sendRequest<TdApi.Chat>(TdApi.GetChat(chatId))
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (error: Exception) {
+                            Timber.d(error, "Could not resolve Telegram chat %s", chatId)
+                            null
                         }
                     }
-                }.awaitAll()
-            }
-            resolvedChats.filterNotNull().forEach { chat ->
-                chatsById[chat.id] = chat
-            }
+                }
+            }.awaitAll()
         }
-        return chatsById.values.mapNotNull { chat ->
-            runCatching { chat.toTelegramChannel() }
-                .onFailure { Timber.d(it, "Skipping non-channel Telegram chat %s", chat.id) }
-                .getOrNull()
+
+        return resolvedChats.filterNotNull().mapNotNull { chat ->
+            runCatching {
+                chat.toTelegramChannel().copy(isSaved = chat.id in savedChatIds)
+            }.onFailure {
+                Timber.d(it, "Skipping non-channel Telegram chat %s", chat.id)
+            }.getOrNull()
         }.sortedBy { it.title.lowercase() }
     }
 
