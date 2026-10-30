@@ -18,7 +18,9 @@ internal suspend fun <T> resolvePreferredCloudPlaybackValue(
     return resolveRemote()?.also(onRemoteResolved) ?: original
 }
 
-private val CANONICAL_CLOUD_SCHEMES = setOf("navidrome", "jellyfin")
+// This fork does not expose legacy cloud providers. Telegram playback uses its
+// authenticated loopback HTTP URL and therefore does not require a custom URI scheme.
+private val CANONICAL_CLOUD_SCHEMES = emptySet<String>()
 
 /**
  * Keeps queue and persisted snapshot URIs independent from process-local proxy ports and from
