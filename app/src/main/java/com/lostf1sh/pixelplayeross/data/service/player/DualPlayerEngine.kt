@@ -19,7 +19,9 @@ import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.TrackSelectionParameters
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
@@ -35,6 +37,7 @@ import androidx.media3.extractor.mp3.Mp3Extractor
 import androidx.media3.extractor.flac.FlacExtractor
 import com.lostf1sh.pixelplayeross.data.model.AudioOutputMode
 import com.lostf1sh.pixelplayeross.data.model.TransitionSettings
+import com.lostf1sh.pixelplayeross.data.telegram.TelegramRepository
 import com.lostf1sh.pixelplayeross.utils.MediaItemBuilder
 import com.lostf1sh.pixelplayeross.utils.envelope
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -48,6 +51,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -225,7 +229,8 @@ internal fun shouldDisableAudioOffloadOnEarlyBuffering(
 @OptIn(UnstableApi::class)
 @Singleton
 class DualPlayerEngine @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context,
+    private val telegramRepository: TelegramRepository,
 ) {
     private companion object {
         // A local file reaches READY in ~100ms with a working output path, so 1.5s of
@@ -239,7 +244,7 @@ class DualPlayerEngine @Inject constructor(
         private val LOCAL_MEDIA_SCHEMES = setOf("content", "file", "android.resource")
         // Only ordinary HTTP(S) media URLs are treated as remote. Legacy
         // Navidrome/Jellyfin URI schemes are intentionally disabled in this product.
-        private val REMOTE_MEDIA_SCHEMES = setOf("http", "https")
+        private val REMOTE_MEDIA_SCHEMES = setOf("http", "https", "telegram")
     }
 
     data class TransitionTarget(
@@ -1062,7 +1067,30 @@ class DualPlayerEngine @Inject constructor(
         val httpDataSourceFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
             .setConnectTimeoutMs(15_000)
             .setReadTimeoutMs(210_000)
-        val dataSourceFactory = DefaultDataSource.Factory(context, httpDataSourceFactory)
+        val baseDataSourceFactory = DefaultDataSource.Factory(context, httpDataSourceFactory)
+        val resolvingDataSourceFactory = ResolvingDataSource.Factory(
+            baseDataSourceFactory,
+            object : ResolvingDataSource.Resolver {
+                override fun resolveDataSpec(dataSpec: DataSpec): DataSpec {
+                    val uri = dataSpec.uri
+                    if (!uri.scheme.equals("telegram", ignoreCase = true)) return dataSpec
+
+                    // Queue snapshots retain telegram://chat/message, never a loopback
+                    // URL with a process-local port/token. Resolve it at every source open
+                    // so restored queues and seeks get a fresh authenticated stream URL.
+                    val streamUri = try {
+                        runBlocking {
+                            telegramRepository.resolveTelegramPlaybackUri(uri.toString())
+                        }
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (error: Exception) {
+                        throw IOException("Unable to resolve Telegram audio reference.", error)
+                    }
+                    return dataSpec.buildUpon().setUri(streamUri).build()
+                }
+            },
+        )
         val extractorsFactory = DefaultExtractorsFactory()
             .setMp3ExtractorFlags(Mp3Extractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING)
             .setFlacExtractorFlags(FlacExtractor.FLAG_DISABLE_ID3_METADATA)
@@ -1070,7 +1098,7 @@ class DualPlayerEngine @Inject constructor(
         val loadControl = buildAdaptiveLoadControl()
 
         return ExoPlayer.Builder(context, renderersFactory)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory, extractorsFactory))
+            .setMediaSourceFactory(DefaultMediaSourceFactory(resolvingDataSourceFactory, extractorsFactory))
             .setLoadControl(loadControl)
             .build().apply {
             if (!outputMode.usesUnmodifiedMedia3AudioSink) {
