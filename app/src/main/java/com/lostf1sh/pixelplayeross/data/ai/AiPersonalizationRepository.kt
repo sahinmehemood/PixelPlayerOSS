@@ -216,7 +216,7 @@ class AiPersonalizationRepository @Inject constructor(
             .post(requestJson.toString().toRequestBody(JSON_MEDIA_TYPE))
             .build()
 
-        httpClient.newCall(request).execute().use { response ->
+        return httpClient.newCall(request).execute().use { response ->
             val responseBody = response.body
                 ?: throw IllegalStateException("AI provider returned an empty response.")
             if (responseBody.contentLength() > 1_000_000L) {
