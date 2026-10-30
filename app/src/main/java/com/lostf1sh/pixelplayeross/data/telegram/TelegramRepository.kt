@@ -23,7 +23,6 @@ class TelegramRepository @Inject constructor(
     fun isReady(): Boolean = clientManager.isReady()
 
     fun configureApiCredentials(apiId: Int, apiHash: String) {
-        TelegramApiCredentialsValidator.validate(apiId, apiHash)
         val credentials = TelegramApiCredentials.parse(apiId.toString(), apiHash)
         clientManager.configureApiCredentials(credentials)
     }
