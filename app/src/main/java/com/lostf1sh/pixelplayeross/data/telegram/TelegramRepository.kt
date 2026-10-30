@@ -84,28 +84,38 @@ class TelegramRepository @Inject constructor(
         streamProxy.ensureStarted()
         clientManager.sendRequest<TdApi.Ok>(TdApi.OpenChat(channel.chatId))
 
-        val songs = ArrayList<Song>()
-        var fromMessageId = 0L
-        repeat(200) {
-            val request = TdApi.SearchChatMessages().apply {
-                chatId = channel.chatId
-                query = ""
-                senderId = null
-                this.fromMessageId = fromMessageId
-                offset = 0
-                limit = 100
-                filter = TdApi.SearchMessagesFilterAudio()
+        // Search audio messages and generic documents: music files are often uploaded
+        // as documents rather than Telegram's dedicated audio message type.
+        val messagesById = linkedMapOf<Long, TdApi.Message>()
+        val filters = listOf<TdApi.SearchMessagesFilter>(
+            TdApi.SearchMessagesFilterAudio(),
+            TdApi.SearchMessagesFilterDocument(),
+        )
+        filters.forEach { filter ->
+            var fromMessageId = 0L
+            var page = 0
+            while (page < 200) {
+                val request = TdApi.SearchChatMessages().apply {
+                    chatId = channel.chatId
+                    query = ""
+                    senderId = null
+                    this.fromMessageId = fromMessageId
+                    offset = 0
+                    limit = 100
+                    this.filter = filter
+                }
+                val response = clientManager.sendRequest<TdApi.FoundChatMessages>(request)
+                if (response.messages.isEmpty()) break
+                response.messages.forEach { message -> messagesById.putIfAbsent(message.id, message) }
+                val next = response.nextFromMessageId
+                if (next == 0L || next == fromMessageId) break
+                fromMessageId = next
+                page += 1
             }
-            val response = clientManager.sendRequest<TdApi.FoundChatMessages>(request)
-            if (response.messages.isEmpty()) return songs
-            response.messages.forEach { message ->
-                mapAudioMessage(message, channel)?.let(songs::add)
-            }
-            val next = response.nextFromMessageId
-            if (next == 0L || next == fromMessageId) return songs
-            fromMessageId = next
         }
-        return songs
+        return messagesById.values
+            .sortedByDescending { it.date }
+            .mapNotNull { message -> mapAudioMessage(message, channel) }
     }
 
     private suspend fun mapAudioMessage(message: TdApi.Message, channel: TelegramChannel): Song? {
