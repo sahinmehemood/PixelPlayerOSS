@@ -145,7 +145,7 @@ class TelegramClientManager @Inject constructor(
             client = created
         } catch (error: Exception) {
             _initializationError.value =
-                "TDLib initialization failed: \${error.message ?: "unknown error"}"
+                "TDLib initialization failed: ${error.message ?: "unknown error"}"
             Timber.e(error, "TDLib initialization failed")
         }
     }
@@ -186,7 +186,7 @@ class TelegramClientManager @Inject constructor(
             client?.send(params, defaultHandler)
         } catch (error: Exception) {
             _initializationError.value =
-                "Could not configure Telegram: \${error.message ?: "unknown error"}"
+                "Could not configure Telegram: ${error.message ?: "unknown error"}"
             Timber.e(error, "TDLib configuration failed")
         }
     }
