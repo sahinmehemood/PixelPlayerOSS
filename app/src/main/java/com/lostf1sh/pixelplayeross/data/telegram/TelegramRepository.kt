@@ -71,21 +71,29 @@ class TelegramRepository @Inject constructor(
         )
         val chatsById = linkedMapOf<Long, TdApi.Chat>()
         chatLists.forEach { chatList ->
+            // LoadChats may report that a list is already fully loaded. That is not a
+            // reason to skip GetChats; the locally cached list is still readable.
             runCatching {
                 clientManager.sendRequest<TdApi.Ok>(TdApi.LoadChats(chatList, 500))
-                val chats = clientManager.sendRequest<TdApi.Chats>(
+            }.onFailure {
+                Timber.d(it, "Telegram chat list is already loaded or could not be extended")
+            }
+
+            val chats = runCatching {
+                clientManager.sendRequest<TdApi.Chats>(
                     TdApi.GetChats(chatList, Long.MAX_VALUE, 0L, 500)
                 )
-                chats.chatIds.forEach { chatId ->
-                    val chat = runCatching {
-                        clientManager.sendRequest<TdApi.Chat>(TdApi.GetChat(chatId))
-                    }.onFailure {
-                        Timber.d(it, "Could not resolve Telegram chat %s", chatId)
-                    }.getOrNull()
-                    if (chat != null) chatsById[chat.id] = chat
-                }
             }.onFailure {
-                Timber.d(it, "Could not load one Telegram chat list")
+                Timber.d(it, "Could not read one Telegram chat list")
+            }.getOrNull() ?: return@forEach
+
+            chats.chatIds.forEach { chatId ->
+                val chat = runCatching {
+                    clientManager.sendRequest<TdApi.Chat>(TdApi.GetChat(chatId))
+                }.onFailure {
+                    Timber.d(it, "Could not resolve Telegram chat %s", chatId)
+                }.getOrNull()
+                if (chat != null) chatsById[chat.id] = chat
             }
         }
         return chatsById.values.mapNotNull { chat ->

@@ -68,8 +68,9 @@ class TelegramActivity : ComponentActivity() {
                     viewModel = telegramViewModel,
                     onBack = ::finish,
                     onPlay = { songs, selected, queueName ->
+                        // Keep this Activity alive while its ViewModel completes the queue
+                        // handoff. The playback service continues after the user presses Back.
                         playerViewModel.playSongs(songs, selected, queueName)
-                        finish()
                     },
                 )
             }

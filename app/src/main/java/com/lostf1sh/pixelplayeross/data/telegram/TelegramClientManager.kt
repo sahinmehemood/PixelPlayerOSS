@@ -51,6 +51,10 @@ class TelegramClientManager @Inject constructor(
 
     @Volatile private var client: Client? = null
 
+    private val defaultHandler = Client.ResultHandler { result ->
+        if (result is TdApi.Error) reportError(result)
+    }
+
     init {
         initializeClient()
     }
@@ -136,10 +140,6 @@ class TelegramClientManager @Inject constructor(
             _initializationError.value = "Could not configure Telegram: ${error.message ?: "unknown error"}"
             Timber.e(error, "TDLib configuration failed")
         }
-    }
-
-    private val defaultHandler = Client.ResultHandler { result ->
-        if (result is TdApi.Error) reportError(result)
     }
 
     private fun reportError(error: TdApi.Error) {
