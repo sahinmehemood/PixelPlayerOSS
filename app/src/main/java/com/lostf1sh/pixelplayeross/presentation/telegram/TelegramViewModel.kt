@@ -104,6 +104,28 @@ class TelegramViewModel @Inject constructor(
         }
     }
 
+    fun resetApiCredentials() {
+        runAction("Closing Telegram and clearing saved API credentials…") {
+            telegramRepository.resetApiCredentials()
+            _uiState.update {
+                it.copy(
+                    authorizationState = null,
+                    hasApiCredentials = false,
+                    apiIdInput = "",
+                    apiHashInput = "",
+                    phoneNumber = "",
+                    code = "",
+                    password = "",
+                    channels = emptyList(),
+                    selectedChannel = null,
+                    songs = emptyList(),
+                    initializationError = "Telegram API credentials are not configured. Enter your API ID and API hash to continue.",
+                    status = "Telegram session cleared. Enter the replacement API credentials.",
+                )
+            }
+        }
+    }
+
     fun updatePhoneNumber(value: String) = _uiState.update {
         it.copy(phoneNumber = value.filter { char -> char.isDigit() || char == '+' }.take(20), error = null)
     }
