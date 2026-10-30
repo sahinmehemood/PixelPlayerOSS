@@ -246,8 +246,10 @@ class DualPlayerEngine @Inject constructor(
         private const val POST_TRANSITION_OFFLOAD_GUARD_MS = 2_000L
         private const val MAX_AUXILIARY_TIMELINE_ITEMS = QueueWindowPolicy.MAX_AUXILIARY_TIMELINE_ITEMS
         private val LOCAL_MEDIA_SCHEMES = setOf("content", "file", "android.resource")
-        private val REMOTE_MEDIA_SCHEMES = setOf("http", "https", "navidrome", "jellyfin")
-        private val CLOUD_PROXY_SCHEMES = setOf("navidrome", "jellyfin")
+        // Only ordinary HTTP(S) media URLs are treated as remote. Legacy
+        // Navidrome/Jellyfin URI schemes are intentionally disabled in this product.
+        private val REMOTE_MEDIA_SCHEMES = setOf("http", "https")
+        private val CLOUD_PROXY_SCHEMES = emptySet<String>()
     }
 
     data class TransitionTarget(
