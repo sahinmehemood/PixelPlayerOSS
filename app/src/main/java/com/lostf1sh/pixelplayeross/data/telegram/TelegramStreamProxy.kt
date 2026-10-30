@@ -16,7 +16,6 @@ import java.io.File
 import java.io.RandomAccessFile
 import java.security.MessageDigest
 import java.security.SecureRandom
-import java.net.ServerSocket
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
@@ -52,12 +51,52 @@ internal object TelegramStreamAccessToken {
     }
 }
 
+
+internal object TelegramByteRange {
+    data class Range(
+        val start: Long,
+        val end: Long,
+        val isPartial: Boolean,
+    )
+
+    private val pattern = Regex("^bytes=(\\d*)-(\\d*)$")
+
+    fun parse(header: String?, size: Long): Range? {
+        if (size <= 0L) return null
+        if (header == null) return Range(0L, size - 1L, isPartial = false)
+        if (header.length > 64) return null
+
+        val match = pattern.matchEntire(header.trim()) ?: return null
+        val first = match.groupValues[1]
+        val last = match.groupValues[2]
+        if (first.isEmpty() && last.isEmpty()) return null
+
+        return if (first.isEmpty()) {
+            val suffixLength = last.toLongOrNull()?.takeIf { it > 0L } ?: return null
+            Range(
+                start = (size - suffixLength).coerceAtLeast(0L),
+                end = size - 1L,
+                isPartial = true,
+            )
+        } else {
+            val start = first.toLongOrNull() ?: return null
+            val end = last.takeIf { it.isNotEmpty() }?.toLongOrNull() ?: (size - 1L)
+            if (start >= size || end < start) return null
+            Range(
+                start = start,
+                end = end.coerceAtMost(size - 1L),
+                isPartial = true,
+            )
+        }
+    }
+}
+
 @Singleton
 class TelegramStreamProxy @Inject constructor(
     private val clientManager: TelegramClientManager,
 ) {
     companion object {
-        private const val MAX_STREAM_BYTES = 512L * 1024L * 1024L
+        private const val MAX_STREAM_BYTES = 2L * 1024L * 1024L * 1024L
         private const val MAX_WAIT_MS = 180_000L
         private val rangePattern = Regex("^bytes=(\\d*)-(\\d*)$")
     }
@@ -71,9 +110,8 @@ class TelegramStreamProxy @Inject constructor(
         if (server != null && port > 0) return
         startMutex.withLock {
             if (server != null && port > 0) return
-            val selectedPort = ServerSocket(0).use { it.localPort }
             val selectedToken = TelegramStreamAccessToken.generate()
-            val instance = embeddedServer(CIO, host = "127.0.0.1", port = selectedPort) {
+            val instance = embeddedServer(CIO, host = "127.0.0.1", port = 0) {
                 routing {
                     get("/stream/{fileId}/{token}") {
                         val suppliedToken = call.parameters["token"].orEmpty()
@@ -135,15 +173,15 @@ class TelegramStreamProxy @Inject constructor(
                             return@get
                         }
 
-                        val rangeHeader = call.request.headers["Range"]
-                        val parsedRange = parseRange(rangeHeader, size)
-                        if (parsedRange == null) {
+                        val range = TelegramByteRange.parse(call.request.headers["Range"], size)
+                        if (range == null) {
                             call.response.header("Content-Range", "bytes */$size")
                             call.respond(HttpStatusCode.RequestedRangeNotSatisfiable)
                             return@get
                         }
-                        val (start, end) = parsedRange
-                        val isPartial = rangeHeader != null
+                        val start = range.start
+                        val end = range.end
+                        val isPartial = range.isPartial
                         val contentLength = end - start + 1L
                         val responseStatus = if (isPartial) HttpStatusCode.PartialContent else HttpStatusCode.OK
                         call.response.status(responseStatus)
@@ -200,10 +238,12 @@ class TelegramStreamProxy @Inject constructor(
                 }
             }
             instance.start(wait = false)
+            val actualPort = instance.engine.resolvedConnectors().firstOrNull()?.port
+                ?: throw IllegalStateException("Telegram stream proxy did not bind to a local port.")
             server = instance
-            port = selectedPort
+            port = actualPort
             streamToken = selectedToken
-            Timber.i("Telegram stream proxy listening on 127.0.0.1:%d", selectedPort)
+            Timber.i("Telegram stream proxy listening on 127.0.0.1:%d", actualPort)
         }
     }
 
@@ -216,20 +256,5 @@ class TelegramStreamProxy @Inject constructor(
         return "http://127.0.0.1:$port/stream/$fileId/$streamToken?size=$safeSize&mime=$safeMime"
     }
 
-    private fun parseRange(header: String?, size: Long): Pair<Long, Long>? {
-        if (header == null) return 0L to (size - 1L)
-        val match = rangePattern.matchEntire(header.trim()) ?: return null
-        val first = match.groupValues[1]
-        val last = match.groupValues[2]
-        if (first.isEmpty() && last.isEmpty()) return null
-        return if (first.isEmpty()) {
-            val suffix = last.toLongOrNull()?.takeIf { it > 0L } ?: return null
-            (size - suffix).coerceAtLeast(0L) to (size - 1L)
-        } else {
-            val start = first.toLongOrNull() ?: return null
-            val end = last.takeIf { it.isNotEmpty() }?.toLongOrNull() ?: (size - 1L)
-            if (start >= size || end < start) return null
-            start to end.coerceAtMost(size - 1L)
-        }
-    }
+
 }
