@@ -144,11 +144,15 @@ private fun TelegramMusicScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val selectedChannel = state.selectedChannel
-    val isQrLogin = state.authorizationState is TdApi.AuthorizationStateWaitOtherDeviceConfirmation
+    // Keep the entire authentication surface out of screenshots and task-switcher
+    // previews: it can contain API credentials, phone numbers, verification codes,
+    // 2FA passwords, or a short-lived QR login token.
+    val authorizationState = state.authorizationState
+    val protectAuthenticationWindow = authorizationState !is TdApi.AuthorizationStateReady
     val activity = LocalContext.current as? Activity
 
-    LaunchedEffect(isQrLogin) {
-        if (isQrLogin) {
+    LaunchedEffect(protectAuthenticationWindow, activity) {
+        if (protectAuthenticationWindow) {
             activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         } else {
             activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
@@ -171,7 +175,7 @@ private fun TelegramMusicScreen(
                         Text("Telegram Music", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                         Text("Stream audio from channels you can access", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    if (state.authorizationState is TdApi.AuthorizationStateReady) {
+                    if (authorizationState is TdApi.AuthorizationStateReady) {
                         IconButton(onClick = viewModel::refreshJoinedChannels, enabled = !state.isLoading) {
                             Icon(Icons.Rounded.Refresh, contentDescription = "Refresh channels")
                         }
@@ -198,7 +202,7 @@ private fun TelegramMusicScreen(
                 }
             }
 
-            if (state.authorizationState !is TdApi.AuthorizationStateReady) {
+            if (authorizationState !is TdApi.AuthorizationStateReady) {
                 if (
                     !state.hasApiCredentials &&
                     state.initializationError?.contains("API credentials") == true
@@ -237,7 +241,7 @@ private fun TelegramMusicScreen(
                         }
                     }
                 } else {
-                when (state.authorizationState) {
+                when (authorizationState) {
                     is TdApi.AuthorizationStateWaitPhoneNumber -> {
                         item {
                             SectionCard(title = "Connect your account", subtitle = "Your account session is stored locally by TDLib on this device.") {
@@ -269,7 +273,7 @@ private fun TelegramMusicScreen(
                                 title = "Scan with Telegram",
                                 subtitle = "On a device already signed in to Telegram, open Settings → Devices → Link Desktop Device and scan this QR code. The code refreshes automatically.",
                             ) {
-                                TelegramLoginQrCode(state.authorizationState.link)
+                                TelegramLoginQrCode(authorizationState.link)
                             }
                         }
                     }
