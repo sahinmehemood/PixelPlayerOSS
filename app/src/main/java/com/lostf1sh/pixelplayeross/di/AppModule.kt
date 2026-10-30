@@ -29,6 +29,8 @@ import com.lostf1sh.pixelplayeross.data.database.MIGRATION_2_3
 import com.lostf1sh.pixelplayeross.data.database.MIGRATION_3_4
 import com.lostf1sh.pixelplayeross.data.database.MIGRATION_4_5
 import com.lostf1sh.pixelplayeross.data.database.MIGRATION_5_6
+import com.lostf1sh.pixelplayeross.data.database.MIGRATION_6_7
+import com.lostf1sh.pixelplayeross.data.database.TelegramDao
 import com.lostf1sh.pixelplayeross.data.database.MusicDao
 import com.lostf1sh.pixelplayeross.data.database.OfflineTrackDao
 import com.lostf1sh.pixelplayeross.data.database.PixelPlayerDatabase
@@ -139,6 +141,7 @@ object AppModule {
                 MIGRATION_3_4,
                 MIGRATION_4_5,
                 MIGRATION_5_6,
+                MIGRATION_6_7,
             )
             .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
 
@@ -225,6 +228,12 @@ object AppModule {
     @Provides
     fun provideOfflineTrackDao(database: PixelPlayerDatabase): OfflineTrackDao {
         return database.offlineTrackDao()
+    }
+
+    @Singleton
+    @Provides
+    fun provideTelegramDao(database: PixelPlayerDatabase): TelegramDao {
+        return database.telegramDao()
     }
 
     @Provides
