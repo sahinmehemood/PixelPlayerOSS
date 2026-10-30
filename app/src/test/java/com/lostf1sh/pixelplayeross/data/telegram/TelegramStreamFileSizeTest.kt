@@ -8,11 +8,11 @@ class TelegramStreamFileSizeTest {
     private val maxBytes = 2L * 1024L * 1024L * 1024L
 
     @Test
-    fun prefersExpectedSizeOverHintAndLocalPrefix() {
+    fun prefersExactTdlibSizeOverMessageHint() {
         assertEquals(
             10_000L,
             TelegramStreamFileSize.resolve(
-                expectedSize = 10_000L,
+                actualSize = 10_000L,
                 hintedSize = 9_000L,
                 localFileSize = 1_024L,
                 isDownloadingCompleted = false,
@@ -22,13 +22,26 @@ class TelegramStreamFileSizeTest {
     }
 
     @Test
-    fun usesMessageHintWhenExpectedSizeIsUnavailable() {
+    fun usesMessageHintWhenTdlibExactSizeIsUnavailable() {
         assertEquals(
             9_000L,
             TelegramStreamFileSize.resolve(
-                expectedSize = 0L,
+                actualSize = 0L,
                 hintedSize = 9_000L,
                 localFileSize = 1_024L,
+                isDownloadingCompleted = false,
+                maxBytes = maxBytes,
+            ),
+        )
+    }
+
+    @Test
+    fun doesNotUsePartialLocalLengthForContentLength() {
+        assertNull(
+            TelegramStreamFileSize.resolve(
+                actualSize = 0L,
+                hintedSize = 0L,
+                localFileSize = 5_000L,
                 isDownloadingCompleted = false,
                 maxBytes = maxBytes,
             ),
@@ -40,19 +53,10 @@ class TelegramStreamFileSizeTest {
         assertEquals(
             5_000L,
             TelegramStreamFileSize.resolve(
-                expectedSize = 0L,
+                actualSize = 0L,
                 hintedSize = 0L,
                 localFileSize = 5_000L,
                 isDownloadingCompleted = true,
-                maxBytes = maxBytes,
-            ),
-        )
-        assertNull(
-            TelegramStreamFileSize.resolve(
-                expectedSize = 0L,
-                hintedSize = 0L,
-                localFileSize = 5_000L,
-                isDownloadingCompleted = false,
                 maxBytes = maxBytes,
             ),
         )
@@ -62,22 +66,32 @@ class TelegramStreamFileSizeTest {
     fun rejectsFilesAboveTheConfiguredLimit() {
         assertNull(
             TelegramStreamFileSize.resolve(
-                expectedSize = maxBytes + 1L,
+                actualSize = maxBytes + 1L,
                 hintedSize = 0L,
                 localFileSize = 0L,
                 isDownloadingCompleted = false,
                 maxBytes = maxBytes,
             ),
         )
-        assertEquals(true, TelegramStreamFileSize.exceedsLimit(maxBytes + 1L, 0L, maxBytes))
-        assertEquals(true, TelegramStreamFileSize.exceedsLimit(0L, maxBytes + 1L, maxBytes))
+        assertEquals(
+            true,
+            TelegramStreamFileSize.exceedsLimit(maxBytes + 1L, 0L, 0L, maxBytes),
+        )
+        assertEquals(
+            true,
+            TelegramStreamFileSize.exceedsLimit(0L, maxBytes + 1L, 0L, maxBytes),
+        )
+        assertEquals(
+            true,
+            TelegramStreamFileSize.exceedsLimit(0L, 0L, maxBytes + 1L, maxBytes),
+        )
     }
 
     @Test
     fun rejectsEmptyCompletedFiles() {
         assertNull(
             TelegramStreamFileSize.resolve(
-                expectedSize = 0L,
+                actualSize = 0L,
                 hintedSize = 0L,
                 localFileSize = 0L,
                 isDownloadingCompleted = true,
