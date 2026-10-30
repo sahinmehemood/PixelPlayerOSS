@@ -145,10 +145,8 @@ object AppModule {
             )
             .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
 
-        if (BuildConfig.DEBUG) {
-            builder.fallbackToDestructiveMigration(dropAllTables = true)
-        }
-
+        // No destructive fallback, including debug builds. A missing migration must
+        // fail loudly instead of silently erasing the user's local music library.
         return builder.build()
     }
 
