@@ -296,7 +296,30 @@ class TelegramClientManager @Inject constructor(
     }
 
     suspend fun logout() {
+        check(isReady()) { "Telegram is not signed in." }
+
+        // TDLib LogOut closes the current client and emits AuthorizationStateClosed.
+        // Waiting for that state before clearing the reference prevents new requests
+        // from being sent to a client that has already released its resources.
         sendRequest<TdApi.Ok>(TdApi.LogOut())
+        val closed = withTimeoutOrNull(15_000L) {
+            authorizationState.first { it is TdApi.AuthorizationStateClosed }
+        }
+        check(closed != null) {
+            "Telegram did not finish signing out. Check your connection and try again."
+        }
+
+        // Keep the user's API credentials, but recreate the TDLib client so the
+        // next sign-in can start from AuthorizationStateWaitPhoneNumber.
+        synchronized(this) {
+            client = null
+            _authorizationState.value = null
+            _initializationError.value = null
+            initializeClient()
+        }
+        check(client != null) {
+            _initializationError.value ?: "Telegram could not restart after sign-out."
+        }
     }
 }
 
