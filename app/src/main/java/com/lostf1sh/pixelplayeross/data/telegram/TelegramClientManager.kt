@@ -100,15 +100,6 @@ class TelegramClientManager @Inject constructor(
         _authorizationState.value = state
         when (state) {
             is TdApi.AuthorizationStateWaitTdlibParameters -> configureTdlib()
-            is TdApi.AuthorizationStateWaitEncryptionKey -> {
-                try {
-                    val key = secretStore.getOrCreateBytes("telegram_tdlib_database_key", 32)
-                    client?.send(TdApi.CheckDatabaseEncryptionKey(key), defaultHandler)
-                } catch (error: Exception) {
-                    _initializationError.value = "Could not unlock the Telegram session database: ${error.message}"
-                    Timber.e(error, "Could not unlock TDLib database")
-                }
-            }
             is TdApi.AuthorizationStateReady -> _initializationError.value = null
             else -> Unit
         }
