@@ -98,7 +98,7 @@ class TelegramClientManager @Inject constructor(
             "TDLib native library is unavailable for this device."
         }
         check(client == null) {
-            "Telegram is already initialized. Sign out and restart the app before changing API credentials."
+            "Telegram is already initialized. Use Change API credentials to close the session before replacing them."
         }
 
         secretStore.putString(API_ID_SECRET, credentials.apiId.toString())
@@ -109,6 +109,40 @@ class TelegramClientManager @Inject constructor(
         check(client != null) {
             _initializationError.value ?: "TDLib could not be initialized."
         }
+    }
+
+    /**
+     * Clears a saved API ID/hash so the user can correct an entry that was valid in
+     * format but rejected by Telegram. The TDLib instance is closed before its local
+     * database and encryption key are removed.
+     */
+    suspend fun resetApiCredentials() {
+        val activeClient = client
+        if (activeClient != null) {
+            if (_authorizationState.value is TdApi.AuthorizationStateReady) {
+                sendRequest<TdApi.Ok>(TdApi.LogOut())
+            } else if (_authorizationState.value !is TdApi.AuthorizationStateClosed) {
+                sendRequest<TdApi.Ok>(TdApi.Close())
+            }
+
+            val closed = withTimeoutOrNull(10_000L) {
+                authorizationState.first { it is TdApi.AuthorizationStateClosed }
+            }
+            check(closed != null) {
+                "TDLib did not finish closing. Try again before changing API credentials."
+            }
+        }
+
+        client = null
+        apiCredentials = null
+        secretStore.putString(API_ID_SECRET, "0")
+        secretStore.putString(API_HASH_SECRET, "")
+        secretStore.remove(DATABASE_KEY_SECRET)
+        File(context.filesDir, "tdlib").deleteRecursively()
+        File(context.filesDir, "tdlib_files").deleteRecursively()
+        _authorizationState.value = null
+        _initializationError.value =
+            "Telegram API credentials are not configured. Enter your API ID and API hash to continue."
     }
 
     @Synchronized
