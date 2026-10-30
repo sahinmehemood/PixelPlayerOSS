@@ -77,6 +77,13 @@ class TelegramByteRangeTest {
     }
 
     @Test
+    fun rejectsOverflowingRangeEnd() {
+        assertNull(
+            TelegramByteRange.parse("bytes=0-999999999999999999999", 1_000L)
+        )
+    }
+
+    @Test
     fun rejectsNonPositiveFileSize() {
         assertNull(TelegramByteRange.parse(null, 0L))
         assertNull(TelegramByteRange.parse("bytes=0-0", -1L))
