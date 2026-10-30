@@ -115,7 +115,6 @@ internal val mainSettingsEntries: List<MainSettingsEntry> = buildList {
             add(MainSettingsEntry.Category(category))
             if (category == SettingsCategory.PLAYBACK) add(MainSettingsEntry.Destination.LYRICS)
         }
-    add(MainSettingsEntry.Destination.DOWNLOADS)
     add(MainSettingsEntry.Category(SettingsCategory.DEVICE_CAPABILITIES))
     add(MainSettingsEntry.Destination.ACCOUNTS)
     add(MainSettingsEntry.Destination.UPDATES)
