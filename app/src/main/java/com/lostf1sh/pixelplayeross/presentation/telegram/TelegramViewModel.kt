@@ -273,15 +273,39 @@ class TelegramViewModel @Inject constructor(
     }
 
     private suspend fun loadSongs(channel: TelegramChannel) {
-        val songs = telegramRepository.getAudioMessages(channel)
+        // Render the persisted index immediately, then refresh from Telegram. A temporary
+        // network failure must not blank a channel that already has a usable local index.
+        val cachedSongs = try {
+            telegramRepository.getCachedAudioMessages(channel)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            Timber.w(error, "Could not read cached Telegram tracks for %s", channel.chatId)
+            emptyList()
+        }
+
+        if (cachedSongs.isNotEmpty()) {
+            _uiState.update {
+                it.copy(
+                    selectedChannel = channel,
+                    songs = cachedSongs,
+                    status = "Showing ${cachedSongs.size} saved tracks while checking Telegram…",
+                )
+            }
+        }
+
+        val refreshedSongs = telegramRepository.getAudioMessages(channel)
+        val songs = refreshedSongs.ifEmpty { cachedSongs }
         _uiState.update {
             it.copy(
                 selectedChannel = channel,
                 songs = songs,
-                status = if (songs.isEmpty()) {
-                    "No audio files found in ${channel.title}."
-                } else {
-                    "Found ${songs.size} audio files in ${channel.title}."
+                status = when {
+                    refreshedSongs.isNotEmpty() ->
+                        "Synced ${refreshedSongs.size} tracks from ${channel.title}."
+                    cachedSongs.isNotEmpty() ->
+                        "Showing ${cachedSongs.size} saved tracks. Telegram returned no new audio."
+                    else -> "No audio files found in ${channel.title}."
                 },
             )
         }
