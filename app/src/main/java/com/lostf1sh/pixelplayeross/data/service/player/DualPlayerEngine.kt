@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.SystemClock
 import android.util.LruCache
+import java.io.IOException
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes as Media3AudioAttributes
 import androidx.media3.common.C
@@ -242,7 +243,7 @@ class DualPlayerEngine @Inject constructor(
         private const val POST_TRANSITION_OFFLOAD_GUARD_MS = 2_000L
         private const val MAX_AUXILIARY_TIMELINE_ITEMS = QueueWindowPolicy.MAX_AUXILIARY_TIMELINE_ITEMS
         private val LOCAL_MEDIA_SCHEMES = setOf("content", "file", "android.resource")
-        // Only ordinary HTTP(S) media URLs are treated as remote. Legacy
+        // Telegram references resolve to authenticated loopback HTTP streams. Legacy
         // Navidrome/Jellyfin URI schemes are intentionally disabled in this product.
         private val REMOTE_MEDIA_SCHEMES = setOf("http", "https", "telegram")
     }
