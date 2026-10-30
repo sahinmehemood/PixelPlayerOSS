@@ -91,28 +91,45 @@ class TelegramActivity : ComponentActivity() {
 }
 
 
+private data class TelegramQrRenderState(
+    val bitmap: Bitmap? = null,
+    val failed: Boolean = false,
+)
+
 @Composable
 private fun TelegramLoginQrCode(link: String) {
-    val bitmap by produceState<Bitmap?>(initialValue = null, key1 = link) {
-        value = withContext(Dispatchers.Default) {
+    val renderState by produceState<TelegramQrRenderState?>(initialValue = null, key1 = link) {
+        val result = withContext(Dispatchers.Default) {
             runCatching {
                 val matrix = TelegramQrCodeEncoder.encode(link, 512)
-                Bitmap.createBitmap(matrix.width, matrix.height, Bitmap.Config.ARGB_8888).apply {
+                val pixels = IntArray(matrix.width * matrix.height)
+                for (y in 0 until matrix.height) {
+                    val rowOffset = y * matrix.width
                     for (x in 0 until matrix.width) {
-                        for (y in 0 until matrix.height) {
-                            setPixel(x, y, if (matrix[x, y]) AndroidColor.BLACK else AndroidColor.WHITE)
-                        }
+                        pixels[rowOffset + x] =
+                            if (matrix[x, y]) AndroidColor.BLACK else AndroidColor.WHITE
                     }
                 }
-            }.getOrNull()
+                Bitmap.createBitmap(matrix.width, matrix.height, Bitmap.Config.ARGB_8888).apply {
+                    setPixels(pixels, 0, matrix.width, 0, 0, matrix.width, matrix.height)
+                }
+            }
         }
+        value = TelegramQrRenderState(
+            bitmap = result.getOrNull(),
+            failed = result.isFailure,
+        )
     }
 
-    if (bitmap == null) {
-        CircularProgressIndicator()
-    } else {
-        Image(
-            bitmap = bitmap!!.asImageBitmap(),
+    when {
+        renderState == null -> CircularProgressIndicator()
+        renderState?.failed == true -> Text(
+            "Telegram's QR code could not be rendered. Return to phone sign-in and try again.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error,
+        )
+        renderState?.bitmap != null -> Image(
+            bitmap = checkNotNull(renderState?.bitmap).asImageBitmap(),
             contentDescription = "Telegram sign-in QR code",
             modifier = Modifier.size(260.dp).padding(12.dp),
         )
