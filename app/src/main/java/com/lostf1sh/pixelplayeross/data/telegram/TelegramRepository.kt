@@ -43,6 +43,7 @@ class TelegramRepository @Inject constructor(
         streamProxy.invalidateSession()
     }
 
+    suspend fun requestQrCodeAuthentication() = clientManager.requestQrCodeAuthentication()
     suspend fun sendPhoneNumber(phoneNumber: String) = clientManager.sendPhoneNumber(phoneNumber)
     suspend fun checkAuthenticationCode(code: String) = clientManager.checkAuthenticationCode(code)
     suspend fun checkAuthenticationPassword(password: String) = clientManager.checkAuthenticationPassword(password)

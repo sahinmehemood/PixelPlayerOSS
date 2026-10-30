@@ -1,4 +1,5 @@
 [versions]
+zxingCore = "3.5.3"
 accompanistDrawablepainter = "0.37.3"
 agp = "9.3.1"
 animation = "1.11.4"
@@ -85,6 +86,7 @@ profileinstaller = "1.4.1"
 
 
 [libraries]
+zxing-core = { module = "com.google.zxing:core", version.ref = "zxingCore" }
 tdlib = { module = "com.github.tdlibx:td", version = "1.8.56" }
 accompanist-drawablepainter = { module = "com.google.accompanist:accompanist-drawablepainter", version.ref = "accompanistDrawablepainter" }
 

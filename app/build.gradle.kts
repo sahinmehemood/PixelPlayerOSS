@@ -278,6 +278,7 @@ dependencies {
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.security.crypto)
     implementation(libs.tdlib)
+    implementation(libs.zxing.core)
 
     implementation(libs.timber)
     implementation(libs.smooth.corner.rect.android.compose)

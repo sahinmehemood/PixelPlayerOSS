@@ -278,6 +278,13 @@ class TelegramClientManager @Inject constructor(
             }
         }
 
+    suspend fun requestQrCodeAuthentication() {
+        check(_authorizationState.value is TdApi.AuthorizationStateWaitPhoneNumber) {
+            "QR sign-in can only be started while Telegram is waiting for a phone number."
+        }
+        sendRequest<TdApi.Ok>(TdApi.RequestQrCodeAuthentication())
+    }
+
     suspend fun sendPhoneNumber(phoneNumber: String) {
         sendRequest<TdApi.Ok>(
             TdApi.SetAuthenticationPhoneNumber(

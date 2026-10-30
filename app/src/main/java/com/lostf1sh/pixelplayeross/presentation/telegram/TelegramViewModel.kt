@@ -138,6 +138,12 @@ class TelegramViewModel @Inject constructor(
     fun updateChannelInput(value: String) = _uiState.update { it.copy(channelInput = value, error = null) }
     fun clearError() = _uiState.update { it.copy(error = null) }
 
+    fun requestQrCodeLogin() {
+        runAction("Requesting a Telegram QR sign-in…") {
+            telegramRepository.requestQrCodeAuthentication()
+        }
+    }
+
     fun submitPhoneNumber() {
         val phone = _uiState.value.phoneNumber.trim()
         if (!phone.startsWith("+") || phone.count(Char::isDigit) < 7) {
