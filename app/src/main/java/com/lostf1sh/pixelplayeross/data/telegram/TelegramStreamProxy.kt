@@ -52,6 +52,27 @@ internal object TelegramStreamAccessToken {
 }
 
 
+internal object TelegramStreamFileSize {
+    fun resolve(
+        expectedSize: Long,
+        hintedSize: Long,
+        localFileSize: Long,
+        isDownloadingCompleted: Boolean,
+        maxBytes: Long,
+    ): Long? {
+        val candidate = when {
+            expectedSize > 0L -> expectedSize
+            hintedSize > 0L -> hintedSize
+            isDownloadingCompleted && localFileSize > 0L -> localFileSize
+            else -> return null
+        }
+        return candidate.takeIf { it in 1..maxBytes }
+    }
+
+    fun exceedsLimit(expectedSize: Long, hintedSize: Long, maxBytes: Long): Boolean =
+        expectedSize > maxBytes || (expectedSize <= 0L && hintedSize > maxBytes)
+}
+
 internal object TelegramByteRange {
     data class Range(
         val start: Long,
@@ -169,10 +190,63 @@ class TelegramStreamProxy @Inject constructor(
                             return@get
                         }
 
-                        val size = (fileInfo.expectedSize.takeIf { it > 0L } ?: hintedSize)
-                            .takeIf { it in 1..MAX_STREAM_BYTES } ?: 0L
-                        if (size <= 0L) {
-                            call.respond(HttpStatusCode.ServiceUnavailable, "Telegram has not reported the audio file size")
+                        if (TelegramStreamFileSize.exceedsLimit(
+                                fileInfo.expectedSize,
+                                hintedSize,
+                                MAX_STREAM_BYTES,
+                            )
+                        ) {
+                            call.respond(HttpStatusCode.PayloadTooLarge, "Telegram audio file exceeds the 2 GiB streaming limit")
+                            return@get
+                        }
+
+                        var size = TelegramStreamFileSize.resolve(
+                            expectedSize = fileInfo.expectedSize,
+                            hintedSize = hintedSize,
+                            localFileSize = file.length(),
+                            isDownloadingCompleted = fileInfo.local.isDownloadingCompleted,
+                            maxBytes = MAX_STREAM_BYTES,
+                        )
+
+                        // Some TDLib message types do not include a file-size hint. In
+                        // that case we cannot safely advertise Content-Length or honour
+                        // Range requests while the prefix is still growing. Wait for
+                        // completion, then serve the complete local file with real ranges.
+                        if (size == null && !fileInfo.local.isDownloadingCompleted) {
+                            val sizeDeadline = System.currentTimeMillis() + MAX_WAIT_MS
+                            while (!fileInfo.local.isDownloadingCompleted &&
+                                System.currentTimeMillis() < sizeDeadline
+                            ) {
+                                if (!fileInfo.local.isDownloadingActive &&
+                                    !fileInfo.local.canBeDownloaded
+                                ) {
+                                    break
+                                }
+                                delay(200)
+                                fileInfo = runCatching {
+                                    clientManager.sendRequest<TdApi.File>(TdApi.GetFile(fileId))
+                                }.getOrElse { fileInfo }
+                            }
+                            size = TelegramStreamFileSize.resolve(
+                                expectedSize = fileInfo.expectedSize,
+                                hintedSize = hintedSize,
+                                localFileSize = file.length(),
+                                isDownloadingCompleted = fileInfo.local.isDownloadingCompleted,
+                                maxBytes = MAX_STREAM_BYTES,
+                            )
+                        }
+
+                        if (size == null) {
+                            if (TelegramStreamFileSize.exceedsLimit(
+                                    fileInfo.expectedSize,
+                                    hintedSize,
+                                    MAX_STREAM_BYTES,
+                                ) || file.length() > MAX_STREAM_BYTES
+                            ) {
+                                call.respond(HttpStatusCode.PayloadTooLarge, "Telegram audio file exceeds the 2 GiB streaming limit")
+                            } else {
+                                call.respond(HttpStatusCode.ServiceUnavailable, "Telegram has not reported the audio file size and the download is incomplete")
+                            }
                             return@get
                         }
 
