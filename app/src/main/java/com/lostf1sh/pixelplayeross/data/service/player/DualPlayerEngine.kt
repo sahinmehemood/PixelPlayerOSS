@@ -1165,7 +1165,15 @@ class DualPlayerEngine @Inject constructor(
             }
         }
         
-        val dataSourceFactory = DefaultDataSource.Factory(context)
+        // Telegram's loopback proxy streams from TDLib's growing download prefix.
+        // A slow Telegram transfer can legitimately pause longer than Media3's default
+        // 8-second socket read timeout, while the proxy itself allows up to 180 seconds.
+        // Keep the HTTP reader alive slightly longer than the proxy window so transient
+        // upstream stalls do not abort an otherwise healthy seekable stream.
+        val httpDataSourceFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
+            .setConnectTimeoutMs(15_000)
+            .setReadTimeoutMs(210_000)
+        val dataSourceFactory = DefaultDataSource.Factory(context, httpDataSourceFactory)
         val resolvingFactory = ResolvingDataSource.Factory(dataSourceFactory, resolver)
         val extractorsFactory = DefaultExtractorsFactory()
             .setMp3ExtractorFlags(Mp3Extractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING)
