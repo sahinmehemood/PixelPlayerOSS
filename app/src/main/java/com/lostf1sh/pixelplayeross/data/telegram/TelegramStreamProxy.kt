@@ -80,7 +80,11 @@ internal object TelegramByteRange {
             )
         } else {
             val start = first.toLongOrNull() ?: return null
-            val end = last.takeIf { it.isNotEmpty() }?.toLongOrNull() ?: (size - 1L)
+            val end = if (last.isEmpty()) {
+                size - 1L
+            } else {
+                last.toLongOrNull() ?: return null
+            }
             if (start >= size || end < start) return null
             Range(
                 start = start,
