@@ -5,4 +5,5 @@ data class TelegramChannel(
     val title: String,
     val username: String? = null,
     val isChannel: Boolean = true,
+    val isSaved: Boolean = false,
 )
