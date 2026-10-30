@@ -222,6 +222,34 @@ class TelegramViewModel @Inject constructor(
         }
     }
 
+    fun removeSavedChannel(channel: TelegramChannel) {
+        if (!channel.isSaved) return
+        runAction("Removing saved channel…") {
+            telegramRepository.removeSavedChannel(channel.chatId)
+            val channels = telegramRepository.listJoinedChannels()
+            _uiState.update { current ->
+                val stillAvailable = channels.firstOrNull { it.chatId == channel.chatId }
+                if (current.selectedChannel?.chatId == channel.chatId) {
+                    current.copy(
+                        channels = channels,
+                        selectedChannel = stillAvailable,
+                        songs = if (stillAvailable == null) emptyList() else current.songs,
+                        status = if (stillAvailable == null) {
+                            "Removed ${channel.title} from saved channels."
+                        } else {
+                            "${channel.title} is still available because you're a member."
+                        },
+                    )
+                } else {
+                    current.copy(
+                        channels = channels,
+                        status = "Removed ${channel.title} from saved channels.",
+                    )
+                }
+            }
+        }
+    }
+
     fun selectChannel(channel: TelegramChannel) {
         if (_uiState.value.selectedChannel?.chatId == channel.chatId && _uiState.value.songs.isNotEmpty()) return
         runAction("Syncing audio from ${channel.title}…") {
