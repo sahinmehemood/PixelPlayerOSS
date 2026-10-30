@@ -93,6 +93,9 @@ class TelegramRepository @Inject constructor(
     suspend fun getCachedChannels(): List<TelegramChannel> =
         telegramDao.getChannels().map(TelegramChannelEntity::toTelegramChannel)
 
+    suspend fun getCachedChannels(): List<TelegramChannel> =
+        telegramDao.getChannels().map(TelegramChannelEntity::toTelegramChannel)
+
     suspend fun getCachedAudioMessages(channel: TelegramChannel): List<Song> =
         telegramDao.getSongsByChatId(channel.chatId).map { it.toSong(channel.title) }
 
