@@ -17,6 +17,9 @@ class TelegramRepository @Inject constructor(
     val errors = clientManager.errors
 
     fun isReady(): Boolean = clientManager.isReady()
+    fun hasApiCredentials(): Boolean = clientManager.hasApiCredentials()
+    fun configureApiCredentials(apiId: Int, apiHash: String) =
+        clientManager.configureApiCredentials(apiId, apiHash)
 
     suspend fun sendPhoneNumber(phoneNumber: String) = clientManager.sendPhoneNumber(phoneNumber)
     suspend fun checkAuthenticationCode(code: String) = clientManager.checkAuthenticationCode(code)
