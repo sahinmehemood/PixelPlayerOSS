@@ -1,6 +1,7 @@
 package com.lostf1sh.pixelplayeross.data.database
 
 import androidx.room.testing.MigrationTestHelper
+import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.google.common.truth.Truth.assertThat
@@ -61,14 +62,10 @@ class TelegramDatabaseMigrationTest {
         }
     }
 
-    private fun android.database.sqlite.SQLiteDatabase.tableExists(table: String): Boolean {
+    private fun SupportSQLiteDatabase.tableExists(table: String): Boolean {
         query(
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
             arrayOf(table),
-            null,
-            null,
-            null,
-            null,
         ).use { cursor ->
             return cursor.moveToFirst()
         }
