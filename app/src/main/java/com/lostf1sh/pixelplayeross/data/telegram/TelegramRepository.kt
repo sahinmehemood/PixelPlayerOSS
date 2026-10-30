@@ -174,29 +174,31 @@ class TelegramRepository @Inject constructor(
                 }
             }
 
-            val nextDate = response.nextOffsetDate
-            val nextMessageId = response.nextOffsetMessageId
-            val nextThreadId = response.nextOffsetMessageThreadId
-            if (
-                nextDate == 0 &&
-                nextMessageId == 0L &&
-                nextThreadId == 0L
-            ) {
+            val currentCursor = TelegramTopicPagination.Cursor(
+                date = offsetDate,
+                messageId = offsetMessageId,
+                messageThreadId = offsetMessageThreadId,
+            )
+            val nextCursor = TelegramTopicPagination.Cursor(
+                date = response.nextOffsetDate,
+                messageId = response.nextOffsetMessageId,
+                messageThreadId = response.nextOffsetMessageThreadId,
+            )
+            if (nextCursor.isTerminal) {
                 reachedEnd = true
                 break
             }
-            if (
-                nextDate == offsetDate &&
-                nextMessageId == offsetMessageId &&
-                nextThreadId == offsetMessageThreadId
-            ) {
-                Timber.w("Telegram forum topic pagination did not advance for chat %s", channel.chatId)
+            if (!nextCursor.advancesFrom(currentCursor)) {
+                Timber.w(
+                    "Telegram forum topic pagination did not advance for chat %s",
+                    channel.chatId,
+                )
                 break
             }
 
-            offsetDate = nextDate
-            offsetMessageId = nextMessageId
-            offsetMessageThreadId = nextThreadId
+            offsetDate = nextCursor.date
+            offsetMessageId = nextCursor.messageId
+            offsetMessageThreadId = nextCursor.messageThreadId
             page += 1
         }
 
