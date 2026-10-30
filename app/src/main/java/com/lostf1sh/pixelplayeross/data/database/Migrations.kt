@@ -199,3 +199,96 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
         )
     }
 }
+
+
+/**
+ * v6 -> v7: Telegram-only channel, message metadata and forum-topic cache.
+ *
+ * The migration is additive. Existing local songs, playlists and user preferences are
+ * untouched. Telegram media identifiers are kept separately from the local music library.
+ */
+val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+                CREATE TABLE IF NOT EXISTS `telegram_channels` (
+                    `chat_id` INTEGER NOT NULL,
+                    `title` TEXT NOT NULL,
+                    `username` TEXT,
+                    `is_channel` INTEGER NOT NULL DEFAULT 1,
+                    `is_saved` INTEGER NOT NULL DEFAULT 0,
+                    `song_count` INTEGER NOT NULL DEFAULT 0,
+                    `last_sync_time` INTEGER NOT NULL DEFAULT 0,
+                    PRIMARY KEY(`chat_id`)
+                )
+            """.trimIndent()
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_telegram_channels_title` " +
+                "ON `telegram_channels` (`title`)"
+        )
+
+        db.execSQL(
+            """
+                CREATE TABLE IF NOT EXISTS `telegram_songs` (
+                    `id` TEXT NOT NULL,
+                    `chat_id` INTEGER NOT NULL,
+                    `message_id` INTEGER NOT NULL,
+                    `file_id` INTEGER NOT NULL,
+                    `title` TEXT NOT NULL,
+                    `artist` TEXT NOT NULL,
+                    `duration` INTEGER NOT NULL,
+                    `file_size` INTEGER NOT NULL DEFAULT 0,
+                    `mime_type` TEXT NOT NULL,
+                    `date_added` INTEGER NOT NULL,
+                    `album_art_uri` TEXT,
+                    `thread_id` INTEGER,
+                    PRIMARY KEY(`id`)
+                )
+            """.trimIndent()
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_telegram_songs_chat_id` " +
+                "ON `telegram_songs` (`chat_id`)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_telegram_songs_message_id` " +
+                "ON `telegram_songs` (`message_id`)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_telegram_songs_file_id` " +
+                "ON `telegram_songs` (`file_id`)"
+        )
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_telegram_songs_chat_id_message_id` " +
+                "ON `telegram_songs` (`chat_id`, `message_id`)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_telegram_songs_thread_id` " +
+                "ON `telegram_songs` (`thread_id`)"
+        )
+
+        db.execSQL(
+            """
+                CREATE TABLE IF NOT EXISTS `telegram_topics` (
+                    `id` TEXT NOT NULL,
+                    `chat_id` INTEGER NOT NULL,
+                    `thread_id` INTEGER NOT NULL,
+                    `name` TEXT NOT NULL,
+                    `song_count` INTEGER NOT NULL DEFAULT 0,
+                    `last_sync_time` INTEGER NOT NULL DEFAULT 0,
+                    `icon_emoji` TEXT,
+                    PRIMARY KEY(`id`)
+                )
+            """.trimIndent()
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_telegram_topics_chat_id` " +
+                "ON `telegram_topics` (`chat_id`)"
+        )
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_telegram_topics_chat_id_thread_id` " +
+                "ON `telegram_topics` (`chat_id`, `thread_id`)"
+        )
+    }
+}
