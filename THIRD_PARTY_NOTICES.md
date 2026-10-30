@@ -56,6 +56,38 @@ Run a dependency/license review again whenever `gradle/libs.versions.toml` chang
 The current review notes are tracked in `docs/DEPENDENCY_LICENSES.md`.
 
 
+## Historical Telegram integration reference
+
+The Telegram integration in this branch was independently reworked for the PixelPlayerOSS architecture with reference to the historical Telegram implementation in `PixelPlayerHQ/PixelPlayer` at commit `785102ea7cb292dfb4e262480823ad9c7e5f8838` (2026-03-31). The upstream `LICENSE` file at that exact revision identified the source snapshot as MIT-licensed. The upstream repository changed its license to proprietary on 2026-05-12; no code from revisions after that license change is used as a source for this integration.
+
+The historical MIT notice was:
+
+```text
+MIT License
+
+Copyright (c) 2024 [Full Name]
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+Reference repository: `https://github.com/PixelPlayerHQ/PixelPlayer`. The original source snapshot should not be confused with the later proprietary branch.
+
 ## Telegram integration
 
 | Artifact | Upstream | License |
