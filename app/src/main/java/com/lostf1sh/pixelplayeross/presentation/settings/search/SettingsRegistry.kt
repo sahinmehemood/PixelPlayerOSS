@@ -325,27 +325,10 @@ object SettingsRegistry {
                 category = SettingsCategory.LIBRARY,
                 subscreenRoute = Screen.Accounts.createRoute(),
                 type = SettingType.NAVIGABLE_CARD,
-                keywordsStatic = listOf("accounts", "navidrome", "jellyfin", "subsonic", "streaming", "server", "login")
-            ),
-            SettingSpec(
-                id = "cloud_downloads",
-                itemKey = "item_cloud_downloads",
-                titleRes = R.string.cloud_downloads_title,
-                subtitleRes = R.string.cloud_downloads_settings_subtitle,
-                category = SettingsCategory.LIBRARY,
-                subscreenRoute = Screen.CloudDownloads.route,
-                type = SettingType.NAVIGABLE_CARD,
-                keywordsStatic = listOf("downloads", "offline", "cloud", "storage", "navidrome", "jellyfin")
-            ),
-            SettingSpec(
-                id = "accounts_listenbrainz",
-                itemKey = "item_accounts_listenbrainz",
-                titleRes = R.string.accounts_listenbrainz_title,
-                subtitleStatic = "Scrobble your listens to ListenBrainz",
-                category = SettingsCategory.LIBRARY,
-                subscreenRoute = Screen.Accounts.createRoute(),
-                type = SettingType.NAVIGABLE_CARD,
-                keywordsStatic = listOf("scrobble", "scrobbling", "listens", "maloja", "last.fm", "history")
+                keywordsStatic = listOf(
+                    "accounts", "telegram", "music channels", "private invite", "streaming",
+                    "AI personalization", "smart mix", "API key", "login"
+                )
             ),
 
             // --- APPEARANCE CATEGORY ---
