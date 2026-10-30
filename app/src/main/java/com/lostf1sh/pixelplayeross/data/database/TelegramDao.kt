@@ -80,6 +80,11 @@ interface TelegramDao {
 
     @Transaction
     suspend fun replaceTopicsForChat(chatId: Long, topics: List<TelegramTopicEntity>) {
+        val activeThreadIds = topics.map { it.threadId }.toSet()
+        getTopics(chatId)
+            .filterNot { it.threadId in activeThreadIds }
+            .forEach { obsolete -> deleteSongsByTopic(chatId, obsolete.threadId) }
+
         deleteTopicsByChat(chatId)
         if (topics.isNotEmpty()) upsertTopics(topics)
     }
