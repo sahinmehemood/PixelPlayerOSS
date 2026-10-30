@@ -27,6 +27,8 @@ class TelegramRepository @Inject constructor(
         clientManager.configureApiCredentials(credentials)
     }
 
+    suspend fun resetApiCredentials() = clientManager.resetApiCredentials()
+
     suspend fun sendPhoneNumber(phoneNumber: String) = clientManager.sendPhoneNumber(phoneNumber)
     suspend fun checkAuthenticationCode(code: String) = clientManager.checkAuthenticationCode(code)
     suspend fun checkAuthenticationPassword(password: String) = clientManager.checkAuthenticationPassword(password)
