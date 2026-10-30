@@ -281,12 +281,15 @@ class TelegramViewModel @Inject constructor(
     fun refreshSelectedChannel() {
         _uiState.value.selectedChannel?.let { channel ->
             runAction("Refreshing ${channel.title}…") {
-                loadSongs(channel)
+                loadSongs(channel, forceRefresh = true)
             }
         }
     }
 
-    private suspend fun loadSongs(channel: TelegramChannel) {
+    private suspend fun loadSongs(
+        channel: TelegramChannel,
+        forceRefresh: Boolean = false,
+    ) {
         // Render the persisted index immediately, then refresh from Telegram. A temporary
         // network failure must not blank a channel that already has a usable local index.
         val cachedSongs = try {
@@ -308,7 +311,7 @@ class TelegramViewModel @Inject constructor(
             }
         }
 
-        val refreshedSongs = telegramRepository.getAudioMessages(channel)
+        val refreshedSongs = telegramRepository.getAudioMessages(channel, forceRefresh = forceRefresh)
         val songs = refreshedSongs.ifEmpty { cachedSongs }
         _uiState.update {
             it.copy(
