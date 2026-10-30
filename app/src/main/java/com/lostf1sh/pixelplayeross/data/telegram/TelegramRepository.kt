@@ -28,6 +28,8 @@ class TelegramRepository @Inject constructor(
     val initializationError = clientManager.initializationError
     companion object {
         private const val CHAT_RESOLUTION_CONCURRENCY = 8
+        private const val SEARCH_PAGE_SIZE = 100
+        private const val MAX_SEARCH_PAGES = 200
     }
 
     val errors = clientManager.errors
@@ -266,68 +268,155 @@ class TelegramRepository @Inject constructor(
         }
     }
 
-    suspend fun getAudioMessages(channel: TelegramChannel): List<Song> {
+    suspend fun getAudioMessages(
+        channel: TelegramChannel,
+        forceRefresh: Boolean = false,
+    ): List<Song> {
         check(clientManager.awaitReady()) { "Telegram is not connected." }
+
+        val cachedChannel = telegramDao.getChannel(channel.chatId)
+        val cachedRows = telegramDao.getSongsByChatId(channel.chatId)
+        val now = System.currentTimeMillis()
+        if (
+            !forceRefresh &&
+            TelegramAudioCachePolicy.isFresh(
+                lastSyncTimeMs = cachedChannel?.lastSyncTime ?: 0L,
+                nowMs = now,
+                hasTracks = cachedRows.isNotEmpty(),
+            )
+        ) {
+            return cachedRows.map { it.toSong(channel.title) }
+        }
+
         clientManager.sendRequest<TdApi.Ok>(TdApi.OpenChat(channel.chatId))
 
-        // Search audio messages and generic documents: music files are often uploaded
-        // as documents rather than Telegram's dedicated audio message type.
+        // Scan audio messages and generic document uploads independently. Some
+        // channels use both formats, and one TDLib filter failing must not erase
+        // valid results from the other filter or the previous persistent cache.
         val messagesById = linkedMapOf<Long, TdApi.Message>()
         val filters = listOf<TdApi.SearchMessagesFilter>(
             TdApi.SearchMessagesFilterAudio(),
             TdApi.SearchMessagesFilterDocument(),
         )
+        var completedFilters = 0
+        var failedFilters = 0
+
         filters.forEach { filter ->
             var fromMessageId = 0L
             var page = 0
+            var reachedEnd = false
             try {
-                while (page < 200) {
+                while (page < MAX_SEARCH_PAGES) {
                     val request = TdApi.SearchChatMessages().apply {
                         chatId = channel.chatId
                         query = ""
                         senderId = null
                         this.fromMessageId = fromMessageId
                         offset = 0
-                        limit = 100
+                        limit = SEARCH_PAGE_SIZE
                         this.filter = filter
                     }
                     val response = clientManager.sendRequest<TdApi.FoundChatMessages>(request)
-                    if (response.messages.isEmpty()) break
+                    if (response.messages.isEmpty()) {
+                        reachedEnd = true
+                        break
+                    }
+
                     response.messages.forEach { message ->
                         messagesById.putIfAbsent(message.id, message)
                     }
+
                     val next = response.nextFromMessageId
-                    if (next == 0L || next == fromMessageId) break
+                    if (next == 0L) {
+                        reachedEnd = true
+                        break
+                    }
+                    if (next == fromMessageId) {
+                        throw IllegalStateException(
+                            "Telegram search did not advance its pagination cursor.",
+                        )
+                    }
                     fromMessageId = next
                     page += 1
+                }
+
+                if (reachedEnd) {
+                    completedFilters += 1
+                } else {
+                    failedFilters += 1
+                    Timber.w(
+                        "Telegram %s scan reached its %d-page safety limit for chat %s; preserving older cached tracks.",
+                        if (filter is TdApi.SearchMessagesFilterAudio) "audio" else "document",
+                        MAX_SEARCH_PAGES,
+                        channel.chatId,
+                    )
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
-                // Audio messages and generic document uploads are scanned independently.
-                // A TDLib error for one filter must not discard the results from the other.
-                Timber.w(error, "Telegram %s search failed for chat %s; keeping partial results",
+                failedFilters += 1
+                Timber.w(
+                    error,
+                    "Telegram %s search failed for chat %s; preserving partial results",
                     if (filter is TdApi.SearchMessagesFilterAudio) "audio" else "document",
                     channel.chatId,
                 )
             }
         }
-        val cachedSongs = messagesById.values
+
+        // If neither filter completed, do not replace a valid cache with an
+        // incomplete/empty result. Surface the failure when there is no fallback.
+        if (completedFilters == 0) {
+            if (cachedRows.isNotEmpty()) {
+                Timber.w(
+                    "Telegram scan failed for chat %s; returning %d cached tracks",
+                    channel.chatId,
+                    cachedRows.size,
+                )
+                return cachedRows.map { it.toSong(channel.title) }
+            }
+            throw IllegalStateException(
+                "Telegram could not scan this channel. Check your access and try again.",
+            )
+        }
+
+        val scannedRows = messagesById.values
             .sortedByDescending { it.date }
             .mapNotNull(::mapAudioMessage)
 
-        if (cachedSongs.isNotEmpty()) {
-            telegramDao.upsertSongs(cachedSongs)
-        }
-        val currentChannel = telegramDao.getChannel(channel.chatId)
-        telegramDao.upsertChannel(
-            TelegramChannelEntity.from(
-                channel = channel,
-                songCount = cachedSongs.size,
+        val previousChannel = cachedChannel ?: telegramDao.getChannel(channel.chatId)
+        val isSaved = previousChannel?.isSaved ?: channel.isSaved
+
+        val finalRows = if (failedFilters == 0) {
+            // Both filters reached the end: this is a complete snapshot. Removing
+            // obsolete rows and writing replacements happens in one Room transaction.
+            val snapshot = TelegramChannelEntity.from(
+                channel = channel.copy(isSaved = isSaved),
+                songCount = scannedRows.size,
                 lastSyncTime = System.currentTimeMillis(),
-            ).copy(isSaved = currentChannel?.isSaved ?: channel.isSaved),
-        )
-        return cachedSongs.map { it.toSong(channel.title) }
+            )
+            telegramDao.replaceChannelSnapshot(snapshot, scannedRows)
+            scannedRows
+        } else {
+            // At least one filter was incomplete. Merge the newly discovered rows
+            // while retaining any cached tracks that the failed filter may have missed.
+            val mergedRows = (
+                cachedRows.associateBy { it.id } +
+                    scannedRows.associateBy { it.id }
+                ).values.sortedWith(
+                    compareByDescending<TelegramSongEntity> { it.dateAdded }
+                        .thenByDescending { it.messageId },
+                )
+            val snapshot = TelegramChannelEntity.from(
+                channel = channel.copy(isSaved = isSaved),
+                songCount = mergedRows.size,
+                lastSyncTime = previousChannel?.lastSyncTime ?: 0L,
+            )
+            telegramDao.mergeChannelSnapshot(snapshot, scannedRows)
+            mergedRows
+        }
+
+        return finalRows.map { it.toSong(channel.title) }
     }
 
     private fun mapAudioMessage(message: TdApi.Message): TelegramSongEntity? {
