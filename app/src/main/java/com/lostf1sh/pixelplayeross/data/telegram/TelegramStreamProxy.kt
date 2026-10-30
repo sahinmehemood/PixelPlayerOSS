@@ -98,7 +98,6 @@ class TelegramStreamProxy @Inject constructor(
     companion object {
         private const val MAX_STREAM_BYTES = 2L * 1024L * 1024L * 1024L
         private const val MAX_WAIT_MS = 180_000L
-        private val rangePattern = Regex("^bytes=(\\d*)-(\\d*)$")
     }
 
     private val startMutex = Mutex()
