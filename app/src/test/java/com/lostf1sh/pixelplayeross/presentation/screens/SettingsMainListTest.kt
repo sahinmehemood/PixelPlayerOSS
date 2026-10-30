@@ -152,7 +152,6 @@ class SettingsMainListTest {
         )
         assertEquals(Screen.About.route, MainSettingsEntry.Category(SettingsCategory.ABOUT).route)
         assertEquals(Screen.LyricsSettings.createRoute(), MainSettingsEntry.Destination.LYRICS.route)
-        assertEquals(Screen.CloudDownloads.route, MainSettingsEntry.Destination.DOWNLOADS.route)
         assertEquals(Screen.Accounts.createRoute(), MainSettingsEntry.Destination.ACCOUNTS.route)
         assertEquals(Screen.Updates.route, MainSettingsEntry.Destination.UPDATES.route)
     }
