@@ -16,6 +16,15 @@ class TelegramRepository @Inject constructor(
     val initializationError = clientManager.initializationError
     val errors = clientManager.errors
 
+    fun hasApiCredentials(): Boolean = clientManager.hasApiCredentials()
+
+    fun isNativeLibraryLoaded(): Boolean = clientManager.isNativeLibraryLoaded()
+
+    fun configureApiCredentials(apiId: String, apiHash: String) {
+        val credentials = TelegramApiCredentials.parse(apiId, apiHash)
+        clientManager.configureApiCredentials(credentials)
+    }
+
     fun isReady(): Boolean = clientManager.isReady()
     fun hasApiCredentials(): Boolean = clientManager.hasApiCredentials()
     fun configureApiCredentials(apiId: Int, apiHash: String) =
