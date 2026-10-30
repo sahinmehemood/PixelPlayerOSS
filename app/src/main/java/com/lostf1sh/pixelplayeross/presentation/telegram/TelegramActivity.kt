@@ -85,6 +85,7 @@ private fun TelegramMusicScreen(
     onPlay: (List<Song>, Song, String) -> Unit,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val selectedChannel = state.selectedChannel
     BackHandler(onBack = onBack)
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -236,11 +237,11 @@ private fun TelegramMusicScreen(
                         }
                     }
                 }
-                if (state.selectedChannel != null) {
+                if (selectedChannel != null) {
                     item {
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                             Column(Modifier.weight(1f)) {
-                                Text(state.selectedChannel.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text(selectedChannel.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                 Text("${state.songs.size} audio tracks", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             OutlinedButton(onClick = viewModel::refreshSelectedChannel, enabled = !state.isLoading) {
@@ -250,7 +251,7 @@ private fun TelegramMusicScreen(
                             }
                             if (state.songs.isNotEmpty()) {
                                 IconButton(onClick = {
-                                    onPlay(state.songs, state.songs.first(), "Telegram · ${state.selectedChannel.title}")
+                                    onPlay(state.songs, state.songs.first(), "Telegram · ${selectedChannel.title}")
                                 }) {
                                     Icon(Icons.Rounded.PlayArrow, contentDescription = "Play all")
                                 }
@@ -260,7 +261,7 @@ private fun TelegramMusicScreen(
                     items(state.songs, key = { it.id }) { song ->
                         Card(
                             modifier = Modifier.fillMaxWidth().clickable {
-                                onPlay(state.songs, song, "Telegram · ${state.selectedChannel.title}")
+                                onPlay(state.songs, song, "Telegram · ${selectedChannel.title}")
                             },
                             shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
