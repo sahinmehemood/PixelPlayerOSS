@@ -6,23 +6,26 @@ import org.junit.jupiter.api.Test
 
 class CloudPlaybackUriResolverTest {
     @Test
-    fun `canonical jellyfin extra replaces a stale offline file uri`() {
-        assertThat(
-            selectCanonicalCloudPlaybackUri(
-                playerUri = "file:///deleted/offline.flac",
-                originalContentUri = "jellyfin://song-42",
-            )
-        ).isEqualTo("jellyfin://song-42")
+    fun `legacy Jellyfin and Navidrome URIs are not canonical cloud sources`() {
+        assertThat(isCanonicalCloudPlaybackUri("jellyfin://song-42")).isFalse()
+        assertThat(isCanonicalCloudPlaybackUri("navidrome://song-42")).isFalse()
     }
 
     @Test
-    fun `canonical navidrome extra replaces an ephemeral proxy uri`() {
+    fun `legacy provider metadata cannot replace the actual playback URI`() {
         assertThat(
             selectCanonicalCloudPlaybackUri(
-                playerUri = "http://127.0.0.1:54321/stream",
+                playerUri = "file:///music/local.flac",
+                originalContentUri = "jellyfin://song-42",
+            )
+        ).isEqualTo("file:///music/local.flac")
+
+        assertThat(
+            selectCanonicalCloudPlaybackUri(
+                playerUri = "http://127.0.0.1:54321/telegram-stream",
                 originalContentUri = "navidrome://song-42",
             )
-        ).isEqualTo("navidrome://song-42")
+        ).isEqualTo("http://127.0.0.1:54321/telegram-stream")
     }
 
     @Test
@@ -30,11 +33,10 @@ class CloudPlaybackUriResolverTest {
         assertThat(
             selectCanonicalCloudPlaybackUri(
                 playerUri = "file:///music/local.flac",
-                originalContentUri = "https://example.test/not-a-provider-id",
+                originalContentUri = "https://example.test/not-a-provider-id"
             )
         ).isEqualTo("file:///music/local.flac")
     }
-
 
     @Test
     fun `offline copy wins before cached and newly resolved remote urls`() = runTest {
