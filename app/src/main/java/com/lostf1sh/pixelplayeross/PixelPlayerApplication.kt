@@ -11,6 +11,10 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import androidx.work.WorkManager
+import com.lostf1sh.pixelplayeross.data.worker.CloudTrackDownloadWorker
+import com.lostf1sh.pixelplayeross.data.worker.JellyfinSyncWorker
+import com.lostf1sh.pixelplayeross.data.worker.NavidromeSyncWorker
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import com.lostf1sh.pixelplayeross.data.diagnostics.AdvancedPerformanceDiagnosticsController
@@ -135,6 +139,7 @@ class PixelPlayerApplication : Application(), ImageLoaderFactory, Configuration.
 
         registerActivityLifecycleCallbacks(PhoneOrientationPolicy)
 
+        cancelLegacyCloudWork()
         syncManager.get().start()
 
         m3uSyncCoordinator.get().start()
@@ -160,6 +165,23 @@ class PixelPlayerApplication : Application(), ImageLoaderFactory, Configuration.
                 folderArtworkSettingsCoordinator.get().reconcile()
             }
         }
+    }
+
+    /**
+     * An earlier app build could leave provider-specific WorkManager jobs queued.
+     * This product no longer exposes Navidrome/Jellyfin; cancel only those workers
+     * and cloud downloads. Local MediaStore scanning and all unrelated work remain.
+     *
+     * WorkManager automatically tags each request with its worker class name, so
+     * this also cancels legacy per-playlist requests with generated unique-work names.
+     */
+    private fun cancelLegacyCloudWork() {
+        val workManager = WorkManager.getInstance(this)
+        workManager.cancelAllWorkByTag(NavidromeSyncWorker::class.java.name)
+        workManager.cancelAllWorkByTag(JellyfinSyncWorker::class.java.name)
+        workManager.cancelAllWorkByTag(CloudTrackDownloadWorker.TAG)
+        workManager.cancelUniqueWork(NavidromeSyncWorker.WORK_NAME_ALL)
+        workManager.cancelUniqueWork(JellyfinSyncWorker.WORK_NAME_ALL)
     }
 
     override fun newImageLoader(): ImageLoader {
