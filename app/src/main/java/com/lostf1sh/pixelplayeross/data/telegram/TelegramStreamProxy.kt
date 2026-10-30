@@ -324,6 +324,25 @@ class TelegramStreamProxy @Inject constructor(
         }
     }
 
+    /**
+     * Invalidates all stream URLs before an account is signed out or its API credentials
+     * are replaced. Stopping the server also rotates the random access token on the next
+     * ensureStarted() call.
+     */
+    suspend fun invalidateSession() {
+        startMutex.withLock {
+            val previousServer = server
+            server = null
+            port = 0
+            streamToken = ""
+            runCatching {
+                previousServer?.stop(gracePeriodMillis = 0L, timeoutMillis = 1_000L)
+            }.onFailure {
+                Timber.w(it, "Could not stop the previous Telegram stream proxy cleanly")
+            }
+        }
+    }
+
     suspend fun streamUrl(fileId: Int, size: Long, mimeType: String): String {
         ensureStarted()
         val safeMime = mimeType.takeIf { it.matches(Regex("^[A-Za-z0-9.+-]+/[A-Za-z0-9.+-]+$")) }
