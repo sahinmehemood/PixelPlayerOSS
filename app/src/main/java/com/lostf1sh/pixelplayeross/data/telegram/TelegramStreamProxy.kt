@@ -14,6 +14,8 @@ import io.ktor.server.routing.routing
 import io.ktor.utils.io.writeFully
 import java.io.File
 import java.io.RandomAccessFile
+import java.security.MessageDigest
+import java.security.SecureRandom
 import java.net.ServerSocket
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -23,6 +25,32 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.drinkless.tdlib.TdApi
 import timber.log.Timber
+
+internal object TelegramStreamAccessToken {
+    private const val TOKEN_BYTES = 32
+    private const val HEX = "0123456789abcdef"
+    private val random = SecureRandom()
+
+    fun generate(): String {
+        val bytes = ByteArray(TOKEN_BYTES)
+        synchronized(random) { random.nextBytes(bytes) }
+        return buildString(TOKEN_BYTES * 2) {
+            bytes.forEach { byte ->
+                val value = byte.toInt() and 0xff
+                append(HEX[value ushr 4])
+                append(HEX[value and 0x0f])
+            }
+        }
+    }
+
+    fun matches(expected: String, supplied: String): Boolean {
+        if (expected.length != TOKEN_BYTES * 2 || supplied.length != expected.length) return false
+        return MessageDigest.isEqual(
+            expected.toByteArray(Charsets.UTF_8),
+            supplied.toByteArray(Charsets.UTF_8),
+        )
+    }
+}
 
 @Singleton
 class TelegramStreamProxy @Inject constructor(
@@ -37,15 +65,23 @@ class TelegramStreamProxy @Inject constructor(
     private val startMutex = Mutex()
     @Volatile private var server: EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>? = null
     @Volatile private var port: Int = 0
+    @Volatile private var streamToken: String = ""
 
     suspend fun ensureStarted() {
         if (server != null && port > 0) return
         startMutex.withLock {
             if (server != null && port > 0) return
             val selectedPort = ServerSocket(0).use { it.localPort }
+            val selectedToken = TelegramStreamAccessToken.generate()
             val instance = embeddedServer(CIO, host = "127.0.0.1", port = selectedPort) {
                 routing {
-                    get("/stream/{fileId}") {
+                    get("/stream/{fileId}/{token}") {
+                        val suppliedToken = call.parameters["token"].orEmpty()
+                        if (!TelegramStreamAccessToken.matches(selectedToken, suppliedToken)) {
+                            call.respond(HttpStatusCode.NotFound, "Not found")
+                            return@get
+                        }
+
                         val fileId = call.parameters["fileId"]?.toIntOrNull()
                         if (fileId == null || fileId <= 0) {
                             call.respond(HttpStatusCode.BadRequest, "Invalid Telegram file id")
@@ -166,6 +202,7 @@ class TelegramStreamProxy @Inject constructor(
             instance.start(wait = false)
             server = instance
             port = selectedPort
+            streamToken = selectedToken
             Timber.i("Telegram stream proxy listening on 127.0.0.1:%d", selectedPort)
         }
     }
@@ -175,7 +212,8 @@ class TelegramStreamProxy @Inject constructor(
         val safeMime = mimeType.takeIf { it.matches(Regex("^[A-Za-z0-9.+-]+/[A-Za-z0-9.+-]+$")) }
             ?: "audio/mpeg"
         val safeSize = size.takeIf { it in 1..MAX_STREAM_BYTES } ?: 0L
-        return "http://127.0.0.1:$port/stream/$fileId?size=$safeSize&mime=$safeMime"
+        check(streamToken.isNotBlank()) { "Telegram stream proxy access token is unavailable." }
+        return "http://127.0.0.1:$port/stream/$fileId/$streamToken?size=$safeSize&mime=$safeMime"
     }
 
     private fun parseRange(header: String?, size: Long): Pair<Long, Long>? {
