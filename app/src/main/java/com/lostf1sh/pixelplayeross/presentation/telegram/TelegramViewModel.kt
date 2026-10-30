@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.lostf1sh.pixelplayeross.data.model.Song
 import com.lostf1sh.pixelplayeross.data.telegram.TelegramChannel
 import com.lostf1sh.pixelplayeross.data.telegram.TelegramRepository
+import com.lostf1sh.pixelplayeross.data.database.TelegramTopicEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -28,6 +29,8 @@ data class TelegramUiState(
     val channelInput: String = "",
     val channels: List<TelegramChannel> = emptyList(),
     val selectedChannel: TelegramChannel? = null,
+    val topics: List<TelegramTopicEntity> = emptyList(),
+    val selectedTopicThreadId: Long? = null,
     val songs: List<Song> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
@@ -118,6 +121,8 @@ class TelegramViewModel @Inject constructor(
                     password = "",
                     channels = emptyList(),
                     selectedChannel = null,
+                    topics = emptyList(),
+                    selectedTopicThreadId = null,
                     songs = emptyList(),
                     initializationError = "Telegram API credentials are not configured. Enter your API ID and API hash to continue.",
                     status = "Telegram session cleared. Enter the replacement API credentials.",
@@ -234,10 +239,13 @@ class TelegramViewModel @Inject constructor(
                     channels = channels,
                     selectedChannel = channel,
                     channelInput = "",
+                    topics = emptyList(),
+                    selectedTopicThreadId = null,
                     songs = emptyList(),
                     status = "Opening ${channel.title}…",
                 )
             }
+            loadTopics(channel)
             loadSongs(channel)
         }
     }
@@ -253,6 +261,8 @@ class TelegramViewModel @Inject constructor(
                     current.copy(
                         channels = channels,
                         selectedChannel = stillAvailable,
+                        topics = if (stillAvailable == null) emptyList() else current.topics,
+                        selectedTopicThreadId = if (stillAvailable == null) null else current.selectedTopicThreadId,
                         songs = if (stillAvailable == null) emptyList() else current.songs,
                         status = if (stillAvailable == null) {
                             "Removed ${channel.title} from saved channels."
@@ -273,7 +283,15 @@ class TelegramViewModel @Inject constructor(
     fun selectChannel(channel: TelegramChannel) {
         if (_uiState.value.selectedChannel?.chatId == channel.chatId && _uiState.value.songs.isNotEmpty()) return
         runAction("Syncing audio from ${channel.title}…") {
-            _uiState.update { it.copy(selectedChannel = channel, songs = emptyList()) }
+            _uiState.update {
+                it.copy(
+                    selectedChannel = channel,
+                    topics = emptyList(),
+                    selectedTopicThreadId = null,
+                    songs = emptyList(),
+                )
+            }
+            loadTopics(channel)
             loadSongs(channel)
         }
     }
@@ -281,7 +299,43 @@ class TelegramViewModel @Inject constructor(
     fun refreshSelectedChannel() {
         _uiState.value.selectedChannel?.let { channel ->
             runAction("Refreshing ${channel.title}…") {
-                loadSongs(channel, forceRefresh = true)
+                loadSongs(
+                    channel = channel,
+                    forceRefresh = true,
+                    threadId = _uiState.value.selectedTopicThreadId,
+                )
+            }
+        }
+    }
+
+    fun selectTopic(topic: TelegramTopicEntity?) {
+        val channel = _uiState.value.selectedChannel ?: return
+        val nextThreadId = topic?.threadId
+        if (_uiState.value.selectedTopicThreadId == nextThreadId) return
+
+        runAction(
+            if (topic == null) "Loading all audio from ${channel.title}…"
+            else "Loading ${topic.name}…",
+        ) {
+            _uiState.update { it.copy(selectedTopicThreadId = nextThreadId, songs = emptyList()) }
+            loadSongs(channel, threadId = nextThreadId)
+        }
+    }
+
+    private suspend fun loadTopics(channel: TelegramChannel) {
+        val topics = try {
+            telegramRepository.getForumTopics(channel)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            Timber.w(error, "Could not refresh Telegram topics for %s", channel.chatId)
+            telegramRepository.getCachedForumTopics(channel.chatId)
+        }
+        _uiState.update { current ->
+            if (current.selectedChannel?.chatId == channel.chatId) {
+                current.copy(topics = topics)
+            } else {
+                current
             }
         }
     }
@@ -289,11 +343,12 @@ class TelegramViewModel @Inject constructor(
     private suspend fun loadSongs(
         channel: TelegramChannel,
         forceRefresh: Boolean = false,
+        threadId: Long? = null,
     ) {
         // Render the persisted index immediately, then refresh from Telegram. A temporary
         // network failure must not blank a channel that already has a usable local index.
         val cachedSongs = try {
-            telegramRepository.getCachedAudioMessages(channel)
+            telegramRepository.getCachedAudioMessages(channel, threadId)
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Exception) {
@@ -311,7 +366,11 @@ class TelegramViewModel @Inject constructor(
             }
         }
 
-        val refreshedSongs = telegramRepository.getAudioMessages(channel, forceRefresh = forceRefresh)
+        val refreshedSongs = telegramRepository.getAudioMessages(
+            channel = channel,
+            forceRefresh = forceRefresh,
+            threadId = threadId,
+        )
         val songs = refreshedSongs.ifEmpty { cachedSongs }
         _uiState.update {
             it.copy(
