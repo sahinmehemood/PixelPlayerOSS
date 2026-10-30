@@ -42,6 +42,33 @@ interface TelegramDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertSongs(songs: List<TelegramSongEntity>)
 
+    /**
+     * Replace a complete channel scan atomically. If the process dies midway,
+     * Room rolls back the delete and does not leave an empty/partial library.
+     */
+    @Transaction
+    suspend fun replaceChannelSnapshot(
+        channel: TelegramChannelEntity,
+        songs: List<TelegramSongEntity>,
+    ) {
+        upsertChannel(channel)
+        deleteSongsByChat(channel.chatId)
+        if (songs.isNotEmpty()) upsertSongs(songs)
+    }
+
+    /**
+     * Merge a partial scan atomically. This is used when TDLib rejects one of the
+     * audio/document filters; already cached tracks must survive that partial failure.
+     */
+    @Transaction
+    suspend fun mergeChannelSnapshot(
+        channel: TelegramChannelEntity,
+        songs: List<TelegramSongEntity>,
+    ) {
+        upsertChannel(channel)
+        if (songs.isNotEmpty()) upsertSongs(songs)
+    }
+
     @Query("DELETE FROM telegram_songs WHERE chat_id = :chatId")
     suspend fun deleteSongsByChat(chatId: Long)
 
