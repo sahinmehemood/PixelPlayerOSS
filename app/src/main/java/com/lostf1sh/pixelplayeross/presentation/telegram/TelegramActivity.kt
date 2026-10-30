@@ -1,6 +1,8 @@
 package com.lostf1sh.pixelplayeross.presentation.telegram
 
+import android.app.Activity
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -42,9 +44,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -59,8 +64,8 @@ import dagger.hilt.android.AndroidEntryPoint
 import org.drinkless.tdlib.TdApi
 import android.graphics.Bitmap
 import android.graphics.Color as AndroidColor
-import com.google.zxing.BarcodeFormat
-import com.google.zxing.qrcode.QRCodeWriter
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @AndroidEntryPoint
 class TelegramActivity : ComponentActivity() {
@@ -88,24 +93,26 @@ class TelegramActivity : ComponentActivity() {
 
 @Composable
 private fun TelegramLoginQrCode(link: String) {
-    val bitmap = androidx.compose.runtime.remember(link) {
-        runCatching {
-            val matrix = QRCodeWriter().encode(link, BarcodeFormat.QR_CODE, 512, 512)
-            Bitmap.createBitmap(matrix.width, matrix.height, Bitmap.Config.ARGB_8888).apply {
-                for (x in 0 until matrix.width) {
-                    for (y in 0 until matrix.height) {
-                        setPixel(x, y, if (matrix[x, y]) AndroidColor.BLACK else AndroidColor.WHITE)
+    val bitmap by produceState<Bitmap?>(initialValue = null, key1 = link) {
+        value = withContext(Dispatchers.Default) {
+            runCatching {
+                val matrix = TelegramQrCodeEncoder.encode(link, 512)
+                Bitmap.createBitmap(matrix.width, matrix.height, Bitmap.Config.ARGB_8888).apply {
+                    for (x in 0 until matrix.width) {
+                        for (y in 0 until matrix.height) {
+                            setPixel(x, y, if (matrix[x, y]) AndroidColor.BLACK else AndroidColor.WHITE)
+                        }
                     }
                 }
-            }
-        }.getOrNull()
+            }.getOrNull()
+        }
     }
 
     if (bitmap == null) {
-        Text("Could not render the Telegram sign-in QR code. Use phone sign-in instead.")
+        CircularProgressIndicator()
     } else {
         Image(
-            bitmap = bitmap.asImageBitmap(),
+            bitmap = bitmap!!.asImageBitmap(),
             contentDescription = "Telegram sign-in QR code",
             modifier = Modifier.size(260.dp).padding(12.dp),
         )
@@ -120,6 +127,16 @@ private fun TelegramMusicScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val selectedChannel = state.selectedChannel
+    val isQrLogin = state.authorizationState is TdApi.AuthorizationStateWaitOtherDeviceConfirmation
+    val activity = LocalContext.current as? Activity
+
+    LaunchedEffect(isQrLogin) {
+        if (isQrLogin) {
+            activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        } else {
+            activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
     BackHandler(onBack = onBack)
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
