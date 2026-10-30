@@ -69,14 +69,26 @@ class TelegramRepository @Inject constructor(
         if (joinedChat.id != 0L) return joinedChat.toTelegramChannel()
         repeat(12) {
             delay(350)
-            val refreshed = runCatching {
+            val refreshed = try {
                 clientManager.sendRequest<TdApi.ChatInviteLinkInfo>(TdApi.CheckChatInviteLink(inviteLink))
-            }.getOrNull()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                Timber.d(error, "Telegram invite status is not available yet")
+                null
+            }
             if (refreshed != null && refreshed.chatId != 0L) {
                 return clientManager.sendRequest<TdApi.Chat>(TdApi.GetChat(refreshed.chatId)).toTelegramChannel()
             }
-            val joined = runCatching { listJoinedChannels() }.getOrDefault(emptyList())
-                .firstOrNull { it.title.equals(invite.title, ignoreCase = true) }
+            val joinedChats = try {
+                listJoinedChannels()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                Timber.d(error, "Telegram chat list is not available while resolving invite")
+                emptyList()
+            }
+            val joined = joinedChats.firstOrNull { it.title.equals(invite.title, ignoreCase = true) }
             if (joined != null) return joined
         }
         throw IllegalStateException(
@@ -94,19 +106,22 @@ class TelegramRepository @Inject constructor(
         chatLists.forEach { chatList ->
             // LoadChats may report that a list is already fully loaded. That is not a
             // reason to skip GetChats; the locally cached list is still readable.
-            runCatching {
+            try {
                 clientManager.sendRequest<TdApi.Ok>(TdApi.LoadChats(chatList, 500))
-            }.onFailure {
-                Timber.d(it, "Telegram chat list is already loaded or could not be extended")
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                Timber.d(error, "Telegram chat list is already loaded or could not be extended")
             }
 
-            val chats = runCatching {
-                clientManager.sendRequest<TdApi.Chats>(
-                    TdApi.GetChats(chatList, 500)
-                )
-            }.onFailure {
-                Timber.d(it, "Could not read one Telegram chat list")
-            }.getOrNull() ?: return@forEach
+            val chats = try {
+                clientManager.sendRequest<TdApi.Chats>(TdApi.GetChats(chatList, 500))
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                Timber.d(error, "Could not read one Telegram chat list")
+                null
+            } ?: return@forEach
 
             // TDLib requests are independent, but resolving hundreds of chats
             // serially makes the first screen load unnecessarily slow. Keep a small
@@ -116,11 +131,14 @@ class TelegramRepository @Inject constructor(
                 chats.chatIds.distinct().map { chatId ->
                     async {
                         semaphore.withPermit {
-                            runCatching {
+                            try {
                                 clientManager.sendRequest<TdApi.Chat>(TdApi.GetChat(chatId))
-                            }.onFailure {
-                                Timber.d(it, "Could not resolve Telegram chat %s", chatId)
-                            }.getOrNull()
+                            } catch (cancelled: CancellationException) {
+                                throw cancelled
+                            } catch (error: Exception) {
+                                Timber.d(error, "Could not resolve Telegram chat %s", chatId)
+                                null
+                            }
                         }
                     }
                 }.awaitAll()
