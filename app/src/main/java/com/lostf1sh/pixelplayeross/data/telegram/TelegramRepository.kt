@@ -65,18 +65,34 @@ class TelegramRepository @Inject constructor(
 
     suspend fun listJoinedChannels(): List<TelegramChannel> {
         check(clientManager.awaitReady()) { "Telegram is not connected." }
-        runCatching {
-            clientManager.sendRequest<TdApi.Ok>(TdApi.LoadChats(TdApi.ChatListMain(), 500))
-        }
-        val chats = clientManager.sendRequest<TdApi.Chats>(
-            TdApi.GetChats(TdApi.ChatListMain(), Long.MAX_VALUE, 0L, 500)
+        val chatLists = listOf<TdApi.ChatList>(
+            TdApi.ChatListMain(),
+            TdApi.ChatListArchive(),
         )
-        return chats.chatIds.mapNotNull { chatId ->
-            runCatching { clientManager.sendRequest<TdApi.Chat>(TdApi.GetChat(chatId)).toTelegramChannel() }
-                .onFailure { Timber.d(it, "Could not resolve Telegram chat %s", chatId) }
+        val chatsById = linkedMapOf<Long, TdApi.Chat>()
+        chatLists.forEach { chatList ->
+            runCatching {
+                clientManager.sendRequest<TdApi.Ok>(TdApi.LoadChats(chatList, 500))
+                val chats = clientManager.sendRequest<TdApi.Chats>(
+                    TdApi.GetChats(chatList, Long.MAX_VALUE, 0L, 500)
+                )
+                chats.chatIds.forEach { chatId ->
+                    val chat = runCatching {
+                        clientManager.sendRequest<TdApi.Chat>(TdApi.GetChat(chatId))
+                    }.onFailure {
+                        Timber.d(it, "Could not resolve Telegram chat %s", chatId)
+                    }.getOrNull()
+                    if (chat != null) chatsById[chat.id] = chat
+                }
+            }.onFailure {
+                Timber.d(it, "Could not load one Telegram chat list")
+            }
+        }
+        return chatsById.values.mapNotNull { chat ->
+            runCatching { chat.toTelegramChannel() }
+                .onFailure { Timber.d(it, "Skipping non-channel Telegram chat %s", chat.id) }
                 .getOrNull()
-        }.distinctBy { it.chatId }
-            .sortedBy { it.title.lowercase() }
+        }.sortedBy { it.title.lowercase() }
     }
 
     suspend fun getAudioMessages(channel: TelegramChannel): List<Song> {
@@ -131,7 +147,7 @@ class TelegramRepository @Inject constructor(
                 title = audio.title.ifBlank { audio.fileName.substringBeforeLast('.').ifBlank { "Unknown title" } }
                 performer = audio.performer.ifBlank { "Unknown artist" }
                 durationMs = audio.duration.toLong().coerceAtLeast(0L) * 1000L
-                mimeType = audio.mimeType.ifBlank { "audio/mpeg" }
+                mimeType = resolveAudioMimeType(audio.mimeType, audio.fileName)
             }
             is TdApi.MessageDocument -> {
                 val document = content.document
@@ -145,7 +161,7 @@ class TelegramRepository @Inject constructor(
                 title = fileName.substringBeforeLast('.').ifBlank { "Unknown title" }
                 performer = "Unknown artist"
                 durationMs = 0L
-                mimeType = document.mimeType.ifBlank { "audio/mpeg" }
+                mimeType = resolveAudioMimeType(document.mimeType, fileName)
             }
             else -> return null
         }
@@ -183,13 +199,32 @@ class TelegramRepository @Inject constructor(
     }
 
     private fun TdApi.Chat.toTelegramChannel(): TelegramChannel {
-        val isChannel = (type as? TdApi.ChatTypeSupergroup)?.isChannel == true
+        val isChannel = when (val chatType = type) {
+            is TdApi.ChatTypeSupergroup -> chatType.isChannel
+            is TdApi.ChatTypeBasicGroup -> false
+            else -> throw IllegalArgumentException("This Telegram chat is not a group or channel.")
+        }
         return TelegramChannel(
             chatId = id,
             title = title.ifBlank { "Telegram chat $id" },
             username = null,
             isChannel = isChannel,
         )
+    }
+
+    private fun resolveAudioMimeType(reportedMime: String, fileName: String): String {
+        val normalized = reportedMime.trim().lowercase()
+        if (normalized.startsWith("audio/") || normalized == "application/ogg") return normalized
+        return when (fileName.substringAfterLast('.', "").lowercase()) {
+            "mp3" -> "audio/mpeg"
+            "flac" -> "audio/flac"
+            "wav" -> "audio/wav"
+            "m4a", "m4b", "alac" -> "audio/mp4"
+            "aac" -> "audio/aac"
+            "ogg", "opus" -> "audio/ogg"
+            "ape" -> "audio/ape"
+            else -> "audio/mpeg"
+        }
     }
 
     suspend fun getFile(fileId: Int): TdApi.File =

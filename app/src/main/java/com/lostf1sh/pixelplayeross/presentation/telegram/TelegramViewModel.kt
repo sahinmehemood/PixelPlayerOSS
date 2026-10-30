@@ -10,6 +10,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
@@ -42,7 +43,12 @@ class TelegramViewModel @Inject constructor(
             telegramRepository.authorizationState.collect { authorization ->
                 _uiState.update { it.copy(authorizationState = authorization) }
                 if (authorization is TdApi.AuthorizationStateReady) {
-                    refreshJoinedChannels()
+                    viewModelScope.launch {
+                        // Wait for the login action to release its loading state before
+                        // starting the first channel sync.
+                        uiState.first { !it.isLoading }
+                        refreshJoinedChannels()
+                    }
                 }
             }
         }
