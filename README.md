@@ -4,17 +4,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/PixelPlayerHQ/PixelPlayerOSS/releases/latest">
-    <img src="https://img.shields.io/github/v/release/PixelPlayerHQ/PixelPlayerOSS?include_prereleases&logo=github&style=for-the-badge&label=Latest%20Release" alt="Latest release">
+  <a href="https://github.com/sahinmehemood/New-pixelplay/actions/workflows/android-ci.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/sahinmehemood/New-pixelplay/android-ci.yml?branch=feat/telegram-cloud-ai&style=for-the-badge&label=Android%20CI" alt="Android CI">
   </a>
-  <a href="https://f-droid.org/packages/com.lostf1sh.pixelplayeross/">
-    <img src="https://img.shields.io/f-droid/v/com.lostf1sh.pixelplayeross?logo=fdroid&style=for-the-badge&label=F-Droid" alt="F-Droid version">
-  </a>
-  <a href="https://github.com/PixelPlayerHQ/PixelPlayerOSS/releases">
-    <img src="https://img.shields.io/github/downloads/PixelPlayerHQ/PixelPlayerOSS/total?logo=github&style=for-the-badge" alt="Total downloads">
-  </a>
-  <a href="https://github.com/sponsors/lostf1sh">
-    <img src="https://img.shields.io/badge/Sponsor-GitHub%20Sponsors-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor on GitHub Sponsors">
+  <a href="https://github.com/sahinmehemood/New-pixelplay">
+    <img src="https://img.shields.io/badge/project-New%20PixelPlay-2AABEE?style=for-the-badge&logo=github" alt="New PixelPlay project">
   </a>
   <img src="https://img.shields.io/badge/Android-11%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android 11+">
   <img src="https://img.shields.io/badge/License-GPLv3-blue?style=for-the-badge" alt="GPLv3 license">
@@ -27,21 +21,15 @@
   <img src="assets/screenshot4.jpeg" alt="PixelPlayerOSS lyrics screen" width="205"/>
 </p>
 
-## What It Is
+## What This Repository Is
 
-PixelPlayerOSS is an Android music player maintained by [@lostf1sh](https://github.com/lostf1sh). It focuses on local playback, self-hosted music libraries, expressive Material 3 UI, and user-controlled online lookups.
+This is the Android source submodule used by [New PixelPlay](https://github.com/sahinmehemood/New-pixelplay), a Telegram-enabled fork built on the GPL-licensed PixelPlayerOSS codebase.
 
-The app works offline by default. Optional online services are disabled until you enable them in setup or settings.
+The Android application keeps the existing local music library, Media3 playback engine, Jetpack Compose UI, and offline-first behavior. This fork adds Telegram as its **only cloud account and cloud music source**. Navidrome/Subsonic and Jellyfin are not exposed as account, navigation, or playback providers in this product.
 
 Package name: `com.lostf1sh.pixelplayeross`
 
-## Why This Exists
-
-PixelPlayerOSS keeps the player FOSS-oriented and removes integrations that are not part of that direction.
-
-Removed integrations include Telegram, NetEase, QQ Music, Google Drive, Gemini, Cast, Wear OS, Play Store billing, Firebase, Crashlytics, and Google Play Services runtime dependencies.
-
-This New PixelPlay fork exposes Telegram as its only cloud account and streaming provider. The local music library and offline playback remain available.
+The parent repository owns the product README, submodule pin, CI workflow, and release process. This repository contains the Android application source.
 
 ## Features
 
@@ -78,76 +66,34 @@ LRCLIB and Deezer can be enabled during first-run setup or later from `Settings 
 
 ## Build From Source
 
-Clone the repository:
+Clone the product repository with its pinned Android source submodule:
 
 ```sh
-git clone https://github.com/PixelPlayerHQ/PixelPlayerOSS.git
-cd PixelPlayerOSS
+git clone --branch feat/telegram-cloud-ai --recurse-submodules https://github.com/sahinmehemood/New-pixelplay.git
+cd New-pixelplay/pixelplayer-base
 ```
 
-Build the debug APK:
+Create your own Telegram application at [my.telegram.org](https://my.telegram.org) if you plan to use Telegram. The app asks for the API ID and API hash on first use and stores them in Android Keystore-backed encrypted preferences. They are not embedded in the published APK and do not need to be GitHub Actions secrets. For local development only, optional build-time values can be placed in the uncommitted `local.properties`.
+
+Build and test with JDK 21 and an installed Android SDK:
 
 ```sh
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:assembleDebug
+./gradlew :app:assembleDebug :app:testDebugUnitTest
 ```
 
-Build one universal debug APK for local installation:
+To build one universal debug APK for local debugging:
 
 ```sh
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:assembleDebug -Ppixelplayer.enableAbiSplits=false
+./gradlew :app:assembleDebug -Ppixelplayer.enableAbiSplits=false
 ```
 
-Build a universal unsigned release APK suitable for F-Droid verification:
+The product CI builds separate `arm64-v8a` and `armeabi-v7a` debug APKs. It verifies TDLib's matching native library, ABI contents, APK signatures, and unit tests before publishing a versioned prerelease. The published debug APKs are test builds, not production-signed releases.
 
-```sh
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:assembleRelease -Ppixelplayer.enableAbiSplits=false -Ppixelplayer.disableReleaseSigning=true
-```
+## Downloads and Releases
 
-Run unit tests:
+The product's installable APKs are published by [New PixelPlay](https://github.com/sahinmehemood/New-pixelplay/releases). This source submodule does not publish a second, independent Android application release stream.
 
-```sh
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:testDebugUnitTest
-```
-
-Generate the baseline profile with a connected device or emulator:
-
-```sh
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :baselineprofile:generateBaselineProfile
-```
-
-## Download
-
-PixelPlayerOSS is available on F-Droid:
-
-<a href="https://f-droid.org/packages/com.lostf1sh.pixelplayeross/">
-  <img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" alt="Get it on F-Droid" height="80">
-</a>
-
-GitHub releases are available at:
-
-```text
-https://github.com/PixelPlayerHQ/PixelPlayerOSS/releases
-```
-
-Obtainium app id:
-
-```text
-com.lostf1sh.pixelplayeross
-```
-
-Public releases are planned on a regular weekly cadence when `main` passes the release checklist.
-
-F-Droid listing metadata lives in `fastlane/metadata/android/en-US`; build/release notes for F-Droid are in [docs/FDROID.md](docs/FDROID.md).
-
-> Note: F-Droid builds and signs its own APKs from source, so they may lag behind GitHub releases while the new version works through the F-Droid build cycle. F-Droid and GitHub APK signatures differ — switching between the two requires an uninstall/reinstall.
-
-### Alpha builds
-
-Every merge into `main` automatically publishes a pre-release tagged like `v0.3.0-alpha.N` on the [releases page](https://github.com/PixelPlayerHQ/PixelPlayerOSS/releases). These are cutting-edge builds for testing new changes before they reach a stable release — expect rough edges.
-
-To install one, download the APK for your device from the release assets and sideload it: `arm64-v8a` fits most modern devices, `armeabi-v7a` is for older 32-bit ones.
-
-Alpha builds are signed with a dedicated CI key, so they update over each other, but switching between alpha and a stable or F-Droid install requires an uninstall/reinstall. In Obtainium, enable "Include prereleases" to get alphas automatically.
+Each CI prerelease contains separate `arm64-v8a` and `armeabi-v7a` debug APKs plus `SHA256SUMS.txt`. These are debug-signed testing builds. They are not interchangeable with upstream PixelPlayerOSS or F-Droid-signed installations without uninstalling the existing package first.
 
 ## Support
 
@@ -156,15 +102,23 @@ If PixelPlayerOSS is useful to you, you can support ongoing development through 
 ## Project Structure
 
 ```text
-app/src/main/java/com/lostf1sh/pixelplayeross/
-- data/             Room, repositories, preferences, services, workers
-- di/               Hilt modules and qualifiers
-- presentation/     Compose screens, components, navigation, ViewModels
-- ui/               Theme and Glance widgets
-- utils/            Shared utilities
+New-pixelplay/
+├── .github/workflows/      # Product CI and APK release automation
+├── pixelplayer-base/       # This pinned Android source submodule
+├── .gitmodules
+└── README.md
 
-baselineprofile/      Macrobenchmark and baseline profile generation
+pixelplayer-base/
+├── app/src/main/java/com/lostf1sh/pixelplayeross/
+│   ├── data/               # Room, Telegram, repositories, services, workers
+│   ├── di/                 # Hilt modules and qualifiers
+│   ├── presentation/       # Compose screens, components, navigation, ViewModels
+│   ├── ui/                 # Theme and Glance widgets
+│   └── utils/              # Shared utilities
+└── baselineprofile/        # Macrobenchmark and baseline profile generation
 ```
+
+Keep product-level documentation and CI configuration in the parent repository. Keep Android source and source-level tests in this submodule.
 
 ## Tech Stack
 
@@ -236,22 +190,23 @@ Distributed APKs include third-party components under their own licenses. In par
 
 ## Telegram music and optional AI personalization
 
-This fork adds Telegram as an optional cloud music source. It uses TDLib's on-device database/session, phone-number verification, 2-step verification, public username lookup, private invite-link joining, joined-chat browsing, audio-message indexing, and a loopback HTTP stream proxy with byte-range support for seeking. Telegram tracks are passed to the existing Media3 playback queue as temporary items; they are not inserted into the local Room music library.
+This fork exposes Telegram as its only cloud account and music-streaming provider. It uses TDLib's on-device database/session, QR-device linking, phone-number verification, optional two-step verification, public username lookup, private invite-link joining, joined-chat browsing, audio-message and document indexing, and a token-protected loopback HTTP stream proxy with byte-range support for seeking. Telegram tracks are passed to the existing Media3 playback queue as temporary items; they are not inserted into the local Room music library. Navidrome/Subsonic and Jellyfin account and dashboard routes are intentionally not part of this product's user-facing experience.
 
 ### Telegram API credentials
 
-Create your own Telegram application at [my.telegram.org](https://my.telegram.org) and add the following to your local, uncommitted `local.properties` file:
+Create your own Telegram application at [my.telegram.org](https://my.telegram.org). On first use, open **Home → Cloud library → Telegram** or **Settings → Accounts → Telegram music** and enter the API ID and API hash. The app validates them and stores them in Android Keystore-backed encrypted preferences. The QR login link is short-lived, is never logged or persisted, and is hidden from screenshots while displayed.
+
+For local development only, optional build-time values can be placed in the uncommitted `local.properties` file:
 
 ```properties
 TELEGRAM_API_ID=your_api_id
 TELEGRAM_API_HASH=your_api_hash
 ```
 
-The app does not ship shared Telegram API credentials. TDLib's account database is stored in the app-private files directory and its database encryption key is stored using Android Keystore-backed encrypted preferences. Sign in from **Home → Cloud library → Telegram** or **Settings → Accounts → Telegram music**. Choose QR sign-in (scan using Telegram on an already signed-in device) or phone-number verification with optional two-step verification. You can add public usernames/links or private `t.me/+` invite links. Your Telegram account must already have access or be permitted to join.
+The TDLib account database is stored in app-private storage and excluded from Android cloud backup and device transfer. The stream proxy binds to loopback only, requires a random per-process token, and invalidates active URLs when the account signs out or its API credentials are reset.
 
 ### AI personalization
 
-AI personalization is disabled until configured from **Settings → Accounts → AI personalization**. It accepts an OpenAI-compatible chat-completions endpoint, model name, and your own API key. The key is stored using Android Keystore-backed encrypted preferences. When enabled, only track IDs, titles, artists, albums, genres, durations, favorite state, play counts and last-played recency are sent to the endpoint to rank tracks from your existing library; audio files, file paths and content URIs are never sent. If the service is not configured or the request fails, Smart Mix falls back to the existing offline generator.
+AI personalization is disabled until configured from **Settings → Accounts → AI personalization**. It accepts an OpenAI-compatible chat-completions endpoint, model name, and your own API key. The key is stored using Android Keystore-backed encrypted preferences. When enabled, only local-library metadata and coarse listening signals are sent to rank tracks; audio files, file paths, content URIs, Telegram credentials, and Telegram session data are not sent.
 
-AI output is treated as untrusted: only IDs from the submitted local candidate list are accepted, and no new tracks are downloaded or added to the library.
-
+AI personalization currently ranks the local music library for Smart Mix. It does not process Telegram audio or Telegram channel content. AI output is treated as untrusted: only IDs from the submitted local candidate list are accepted, and no new tracks are downloaded or added to the library.
