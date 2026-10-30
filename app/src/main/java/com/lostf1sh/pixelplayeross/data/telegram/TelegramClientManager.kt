@@ -25,10 +25,13 @@ class TelegramClientManager @Inject constructor(
     private val secretStore: EncryptedSecretStore,
 ) {
     companion object {
-        private const val STORED_API_ID = "telegram_api_id"
-        private const val STORED_API_HASH = "telegram_api_hash"
+        private const val API_ID_SECRET = "telegram_api_id"
+        private const val API_HASH_SECRET = "telegram_api_hash"
+        private const val DATABASE_KEY_SECRET = "telegram_tdlib_database_key"
 
-        @Volatile private var nativeLibraryLoaded = false
+        @Volatile
+        private var nativeLibraryLoaded = false
+
         init {
             nativeLibraryLoaded = try {
                 System.loadLibrary("tdjni")
@@ -52,7 +55,11 @@ class TelegramClientManager @Inject constructor(
     private val _initializationError = MutableStateFlow<String?>(null)
     val initializationError = _initializationError.asStateFlow()
 
-    @Volatile private var client: Client? = null
+    @Volatile
+    private var client: Client? = null
+
+    @Volatile
+    private var apiCredentials: TelegramApiCredentials? = loadStoredOrBuildCredentials()
 
     private val defaultHandler = Client.ResultHandler { result ->
         if (result is TdApi.Error) reportError(result)
@@ -62,34 +69,45 @@ class TelegramClientManager @Inject constructor(
         initializeClient()
     }
 
-    private data class ApiCredentials(
-        val apiId: Int,
-        val apiHash: String,
-    )
-
-    private fun readApiCredentials(): ApiCredentials? {
-        val storedId = secretStore.getString(STORED_API_ID)?.toIntOrNull()
-        val storedHash = secretStore.getString(STORED_API_HASH)?.takeIf { it.isNotBlank() }
-        val apiId = storedId ?: BuildConfig.TELEGRAM_API_ID
-        val apiHash = storedHash ?: BuildConfig.TELEGRAM_API_HASH
-        if (!TelegramApiCredentialsValidator.isValid(apiId, apiHash)) return null
-        return ApiCredentials(apiId, apiHash.trim())
+    private fun loadStoredOrBuildCredentials(): TelegramApiCredentials? {
+        return try {
+            val storedId = secretStore.getString(API_ID_SECRET)
+            val storedHash = secretStore.getString(API_HASH_SECRET)
+            if (!storedId.isNullOrBlank() || !storedHash.isNullOrBlank()) {
+                TelegramApiCredentials.parse(storedId.orEmpty(), storedHash.orEmpty())
+            } else {
+                TelegramApiCredentials.fromCompiledConfig(
+                    BuildConfig.TELEGRAM_API_ID,
+                    BuildConfig.TELEGRAM_API_HASH,
+                )
+            }
+        } catch (error: Exception) {
+            Timber.w(error, "Could not read stored Telegram credentials")
+            null
+        }
     }
 
-    fun hasApiCredentials(): Boolean = runCatching { readApiCredentials() != null }.getOrDefault(false)
-
+    /**
+     * Stores user-owned API credentials using the existing Android Keystore-backed
+     * encrypted store, then creates TDLib exactly once. No rebuild or GitHub secret
+     * is needed when credentials are entered from the app.
+     */
     @Synchronized
-    fun configureApiCredentials(apiId: Int, apiHash: String) {
-        TelegramApiCredentialsValidator.validate(apiId, apiHash)
+    fun configureApiCredentials(credentials: TelegramApiCredentials) {
+        check(nativeLibraryLoaded) {
+            "TDLib native library is unavailable for this device."
+        }
         check(client == null) {
             "Telegram is already initialized. Sign out and restart the app before changing API credentials."
         }
-        secretStore.putString(STORED_API_ID, apiId.toString())
-        secretStore.putString(STORED_API_HASH, apiHash.trim())
+
+        secretStore.putString(API_ID_SECRET, credentials.apiId.toString())
+        secretStore.putString(API_HASH_SECRET, credentials.apiHash)
+        apiCredentials = credentials
         _initializationError.value = null
         initializeClient()
-        _initializationError.value?.let { error ->
-            if (client == null) throw IllegalStateException(error)
+        check(client != null) {
+            _initializationError.value ?: "TDLib could not be initialized."
         }
     }
 
@@ -97,19 +115,13 @@ class TelegramClientManager @Inject constructor(
     private fun initializeClient() {
         if (client != null) return
         if (!nativeLibraryLoaded) {
-            _initializationError.value = "TDLib native library is unavailable for this device."
-            return
-        }
-        val credentials = try {
-            readApiCredentials()
-        } catch (error: Exception) {
-            _initializationError.value = "Secure Telegram settings could not be opened: ${error.message ?: "unknown error"}"
-            Timber.e(error, "Could not read encrypted Telegram API credentials")
-            return
-        }
-        if (credentials == null) {
             _initializationError.value =
-                "Telegram API credentials are not configured. Enter your API ID and API hash from my.telegram.org below."
+                "TDLib's native library is not available for this device architecture."
+            return
+        }
+        if (apiCredentials == null) {
+            _initializationError.value =
+                "Telegram API credentials are not configured. Enter your API ID and API hash to continue."
             return
         }
 
@@ -132,7 +144,8 @@ class TelegramClientManager @Inject constructor(
             )
             client = created
         } catch (error: Exception) {
-            _initializationError.value = "TDLib initialization failed: ${error.message ?: "unknown error"}"
+            _initializationError.value =
+                "TDLib initialization failed: \${error.message ?: "unknown error"}"
             Timber.e(error, "TDLib initialization failed")
         }
     }
@@ -148,9 +161,12 @@ class TelegramClientManager @Inject constructor(
 
     private fun configureTdlib() {
         try {
+            val credentials = apiCredentials
+                ?: throw IllegalStateException("Telegram API credentials are missing.")
+
             val databaseDirectory = File(context.filesDir, "tdlib").apply { mkdirs() }.absolutePath
             val filesDirectory = File(context.filesDir, "tdlib_files").apply { mkdirs() }.absolutePath
-            val databaseKey = secretStore.getOrCreateBytes("telegram_tdlib_database_key", 32)
+            val databaseKey = secretStore.getOrCreateBytes(DATABASE_KEY_SECRET, 32)
             val params = TdApi.SetTdlibParameters(
                 false,
                 databaseDirectory,
@@ -169,7 +185,8 @@ class TelegramClientManager @Inject constructor(
             )
             client?.send(params, defaultHandler)
         } catch (error: Exception) {
-            _initializationError.value = "Could not configure Telegram: ${error.message ?: "unknown error"}"
+            _initializationError.value =
+                "Could not configure Telegram: \${error.message ?: "unknown error"}"
             Timber.e(error, "TDLib configuration failed")
         }
     }
@@ -179,7 +196,11 @@ class TelegramClientManager @Inject constructor(
         Timber.w("TDLib error %d: %s", error.code, error.message)
     }
 
-    fun isConfigured(): Boolean = hasApiCredentials() && nativeLibraryLoaded
+    fun hasApiCredentials(): Boolean = apiCredentials != null
+
+    fun isNativeLibraryLoaded(): Boolean = nativeLibraryLoaded
+
+    fun isConfigured(): Boolean = apiCredentials != null && nativeLibraryLoaded
 
     fun isReady(): Boolean = _authorizationState.value is TdApi.AuthorizationStateReady
 
@@ -198,7 +219,11 @@ class TelegramClientManager @Inject constructor(
             val activeClient = client
             if (activeClient == null) {
                 continuation.resumeWith(
-                    Result.failure(IllegalStateException(initializationError.value ?: "Telegram is not initialized."))
+                    Result.failure(
+                        IllegalStateException(
+                            initializationError.value ?: "Telegram is not initialized.",
+                        ),
+                    ),
                 )
                 return@suspendCancellableCoroutine
             }
@@ -208,7 +233,7 @@ class TelegramClientManager @Inject constructor(
                     is TdApi.Error -> {
                         reportError(result)
                         continuation.resumeWith(
-                            Result.failure(TdlibRequestException(result.code, result.message))
+                            Result.failure(TdlibRequestException(result.code, result.message)),
                         )
                     }
                     else -> {
@@ -221,7 +246,10 @@ class TelegramClientManager @Inject constructor(
 
     suspend fun sendPhoneNumber(phoneNumber: String) {
         sendRequest<TdApi.Ok>(
-            TdApi.SetAuthenticationPhoneNumber(phoneNumber, TdApi.PhoneNumberAuthenticationSettings())
+            TdApi.SetAuthenticationPhoneNumber(
+                phoneNumber,
+                TdApi.PhoneNumberAuthenticationSettings(),
+            ),
         )
     }
 
