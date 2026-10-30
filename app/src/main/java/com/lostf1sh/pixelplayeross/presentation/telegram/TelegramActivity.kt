@@ -118,9 +118,20 @@ private fun TelegramMusicScreen(
                 item { MessageCard(message, isError = true) }
             }
 
+            if (state.hasApiCredentials) {
+                item {
+                    TextButton(
+                        onClick = viewModel::resetApiCredentials,
+                        enabled = !state.isLoading,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Change Telegram API credentials · signs out")
+                    }
+                }
+            }
+
             if (state.authorizationState !is TdApi.AuthorizationStateReady) {
                 if (
-                    state.authorizationState == null &&
                     !state.hasApiCredentials &&
                     state.initializationError?.contains("API credentials") == true
                 ) {
