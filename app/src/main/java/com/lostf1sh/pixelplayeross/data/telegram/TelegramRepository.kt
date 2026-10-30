@@ -70,9 +70,16 @@ class TelegramRepository @Inject constructor(
         }
         // Public channels can be browsed without joining them. Save the chat ID
         // separately so they remain visible in PixelPlayer after this screen closes.
+        val previous = telegramDao.getChannel(channel.chatId)
         val savedChannel = channel.copy(isSaved = true)
         channelStore.save(channel.chatId)
-        telegramDao.upsertChannel(TelegramChannelEntity.from(savedChannel))
+        telegramDao.upsertChannel(
+            TelegramChannelEntity.from(
+                channel = savedChannel,
+                songCount = previous?.songCount ?: 0,
+                lastSyncTime = previous?.lastSyncTime ?: 0L,
+            ),
+        )
         return savedChannel
     }
 
@@ -94,12 +101,37 @@ class TelegramRepository @Inject constructor(
             ?: throw IllegalArgumentException("This is not a valid Telegram media URI.")
         check(clientManager.awaitReady(30_000L)) { "Sign in to Telegram before playing this track." }
 
-        val message = clientManager.sendRequest<TdApi.Message>(
-            TdApi.GetMessage(target.chatId, target.messageId),
+        // Prefer the persistent metadata snapshot. This avoids an extra TDLib
+        // GetMessage round-trip each time Media3 reopens a source for a seek/retry.
+        val cached = telegramDao.getSong(
+            "telegram:${target.chatId}:${target.messageId}",
         )
-        val details = audioFileDetails(message)
-            ?: throw IllegalStateException("This Telegram message no longer contains a supported audio file.")
-        return Uri.parse(streamProxy.streamUrl(details.fileId, details.fileSize, details.mimeType))
+        val details = cached?.let {
+            AudioFileDetails(
+                fileId = it.fileId,
+                fileSize = it.fileSize,
+                title = it.title,
+                artist = it.artist,
+                durationMs = it.duration,
+                mimeType = it.mimeType,
+            )
+        } ?: run {
+            val message = clientManager.sendRequest<TdApi.Message>(
+                TdApi.GetMessage(target.chatId, target.messageId),
+            )
+            val freshDetails = audioFileDetails(message)
+                ?: throw IllegalStateException(
+                    "This Telegram message no longer contains a supported audio file.",
+                )
+            mapAudioMessage(message)?.let { telegramDao.upsertSongs(listOf(it)) }
+            freshDetails
+        }
+        if (details.fileId <= 0) {
+            throw IllegalStateException("Telegram returned an invalid audio file reference.")
+        }
+        return Uri.parse(
+            streamProxy.streamUrl(details.fileId, details.fileSize, details.mimeType),
+        )
     }
 
     private suspend fun joinPrivateInvite(inviteLink: String): TelegramChannel {
@@ -171,7 +203,15 @@ class TelegramRepository @Inject constructor(
             chats?.chatIds?.forEach(chatIds::add)
         }
 
-        val savedChatIds = channelStore.getSavedChatIds()
+        // Read both the legacy encrypted ID list and the Room library. Keeping
+        // the legacy source during this transition preserves channels added by older
+        // app versions; new writes are mirrored into Room.
+        val cachedChannels = telegramDao.getChannels().associateBy { it.chatId }
+        val savedChatIds = channelStore.getSavedChatIds() +
+            cachedChannels.values.asSequence()
+                .filter { it.isSaved }
+                .map { it.chatId }
+                .toSet()
         chatIds.addAll(savedChatIds)
 
         // Resolve the union of joined, archived and explicitly saved public channels
@@ -204,19 +244,26 @@ class TelegramRepository @Inject constructor(
         }.sortedBy { it.title.lowercase() }
 
         if (channels.isNotEmpty()) {
-            val cached = telegramDao.getChannels().associateBy { it.chatId }
             telegramDao.upsertChannels(
                 channels.map { channel ->
-                    val previous = cached[channel.chatId]
+                    val previous = cachedChannels[channel.chatId]
                     TelegramChannelEntity.from(
-                        channel = channel,
+                        channel = channel.copy(
+                            isSaved = channel.isSaved || previous?.isSaved == true,
+                        ),
                         songCount = previous?.songCount ?: 0,
                         lastSyncTime = previous?.lastSyncTime ?: 0L,
                     )
                 },
             )
         }
-        return channels
+        return channels.map { channel ->
+            if (channel.isSaved || cachedChannels[channel.chatId]?.isSaved == true) {
+                channel.copy(isSaved = true)
+            } else {
+                channel
+            }
+        }
     }
 
     suspend fun getAudioMessages(channel: TelegramChannel): List<Song> {
