@@ -27,6 +27,15 @@ data class AiPersonalizationSettings(
     val metadataSharingConfirmed: Boolean,
 )
 
+internal object AiEngagementMetadata {
+    private const val MILLIS_PER_DAY = 86_400_000L
+
+    fun daysSinceLastPlayed(lastPlayedTimestamp: Long, now: Long): Long? {
+        if (lastPlayedTimestamp <= 0L) return null
+        return (now - lastPlayedTimestamp).coerceAtLeast(0L) / MILLIS_PER_DAY
+    }
+}
+
 @Singleton
 class AiPersonalizationRepository @Inject constructor(
     private val secretStore: EncryptedSecretStore,
@@ -113,6 +122,7 @@ class AiPersonalizationRepository @Inject constructor(
             val candidateSongs = (favouritesAndFrequent + discovery).distinctBy { it.id }.take(MAX_CANDIDATES)
             val candidatesById = candidateSongs.associateBy { it.id }
             val catalog = JSONArray()
+            val now = System.currentTimeMillis()
             candidateSongs.forEach { song ->
                 val stats = engagement[song.id]
                 catalog.put(
@@ -125,7 +135,7 @@ class AiPersonalizationRepository @Inject constructor(
                         .put("durationMs", song.duration.coerceAtLeast(0L))
                         .put("favorite", song.isFavorite)
                         .put("playCount", stats?.playCount ?: 0)
-                        .put("lastPlayedTimestamp", stats?.lastPlayedTimestamp ?: 0L)
+                        .put("daysSinceLastPlayed", AiEngagementMetadata.daysSinceLastPlayed(stats?.lastPlayedTimestamp ?: 0L, now) ?: JSONObject.NULL)
                 )
             }
 
@@ -137,7 +147,7 @@ class AiPersonalizationRepository @Inject constructor(
 
                 Select up to $maxSongs distinct IDs, in the order you recommend them.
                 Use only IDs from the supplied catalog. Never invent IDs, tracks, artists or albums.
-                Consider the user's listening counts and favourites as taste signals, but prioritize
+                Consider the user's listening counts, favourites, and days-since-last-played as taste signals, but prioritize
                 the request. Mix familiar favourites with relevant discovery where appropriate.
                 Do not return explanations, markdown fences, or any other fields.
 
