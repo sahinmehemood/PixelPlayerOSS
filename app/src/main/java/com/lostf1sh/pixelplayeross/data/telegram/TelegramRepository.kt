@@ -81,7 +81,7 @@ class TelegramRepository @Inject constructor(
 
             val chats = runCatching {
                 clientManager.sendRequest<TdApi.Chats>(
-                    TdApi.GetChats(chatList, Long.MAX_VALUE, 0L, 500)
+                    TdApi.GetChats(chatList, 500)
                 )
             }.onFailure {
                 Timber.d(it, "Could not read one Telegram chat list")
