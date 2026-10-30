@@ -173,10 +173,15 @@ class TelegramViewModel @Inject constructor(
             telegramRepository.logout()
             _uiState.update {
                 it.copy(
+                    phoneNumber = "",
+                    code = "",
+                    password = "",
+                    channelInput = "",
                     channels = emptyList(),
                     selectedChannel = null,
                     songs = emptyList(),
-                    status = "Signed out of Telegram.",
+                    error = null,
+                    status = "Signed out. Sign in again whenever you're ready.",
                 )
             }
         }
