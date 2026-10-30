@@ -3,7 +3,13 @@ package com.lostf1sh.pixelplayeross.data.telegram
 import com.lostf1sh.pixelplayeross.data.model.Song
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import org.drinkless.tdlib.TdApi
 import timber.log.Timber
 
@@ -14,6 +20,10 @@ class TelegramRepository @Inject constructor(
 ) {
     val authorizationState = clientManager.authorizationState
     val initializationError = clientManager.initializationError
+    companion object {
+        private const val CHAT_RESOLUTION_CONCURRENCY = 8
+    }
+
     val errors = clientManager.errors
 
     fun hasApiCredentials(): Boolean = clientManager.hasApiCredentials()
@@ -98,13 +108,25 @@ class TelegramRepository @Inject constructor(
                 Timber.d(it, "Could not read one Telegram chat list")
             }.getOrNull() ?: return@forEach
 
-            chats.chatIds.forEach { chatId ->
-                val chat = runCatching {
-                    clientManager.sendRequest<TdApi.Chat>(TdApi.GetChat(chatId))
-                }.onFailure {
-                    Timber.d(it, "Could not resolve Telegram chat %s", chatId)
-                }.getOrNull()
-                if (chat != null) chatsById[chat.id] = chat
+            // TDLib requests are independent, but resolving hundreds of chats
+            // serially makes the first screen load unnecessarily slow. Keep a small
+            // concurrency bound so we speed up discovery without flooding TDLib.
+            val semaphore = Semaphore(CHAT_RESOLUTION_CONCURRENCY)
+            val resolvedChats = coroutineScope {
+                chats.chatIds.distinct().map { chatId ->
+                    async {
+                        semaphore.withPermit {
+                            runCatching {
+                                clientManager.sendRequest<TdApi.Chat>(TdApi.GetChat(chatId))
+                            }.onFailure {
+                                Timber.d(it, "Could not resolve Telegram chat %s", chatId)
+                            }.getOrNull()
+                        }
+                    }
+                }.awaitAll()
+            }
+            resolvedChats.filterNotNull().forEach { chat ->
+                chatsById[chat.id] = chat
             }
         }
         return chatsById.values.mapNotNull { chat ->
@@ -129,23 +151,36 @@ class TelegramRepository @Inject constructor(
         filters.forEach { filter ->
             var fromMessageId = 0L
             var page = 0
-            while (page < 200) {
-                val request = TdApi.SearchChatMessages().apply {
-                    chatId = channel.chatId
-                    query = ""
-                    senderId = null
-                    this.fromMessageId = fromMessageId
-                    offset = 0
-                    limit = 100
-                    this.filter = filter
+            try {
+                while (page < 200) {
+                    val request = TdApi.SearchChatMessages().apply {
+                        chatId = channel.chatId
+                        query = ""
+                        senderId = null
+                        this.fromMessageId = fromMessageId
+                        offset = 0
+                        limit = 100
+                        this.filter = filter
+                    }
+                    val response = clientManager.sendRequest<TdApi.FoundChatMessages>(request)
+                    if (response.messages.isEmpty()) break
+                    response.messages.forEach { message ->
+                        messagesById.putIfAbsent(message.id, message)
+                    }
+                    val next = response.nextFromMessageId
+                    if (next == 0L || next == fromMessageId) break
+                    fromMessageId = next
+                    page += 1
                 }
-                val response = clientManager.sendRequest<TdApi.FoundChatMessages>(request)
-                if (response.messages.isEmpty()) break
-                response.messages.forEach { message -> messagesById.putIfAbsent(message.id, message) }
-                val next = response.nextFromMessageId
-                if (next == 0L || next == fromMessageId) break
-                fromMessageId = next
-                page += 1
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                // Audio messages and generic document uploads are scanned independently.
+                // A TDLib error for one filter must not discard the results from the other.
+                Timber.w(error, "Telegram %s search failed for chat %s; keeping partial results",
+                    if (filter is TdApi.SearchMessagesFilterAudio) "audio" else "document",
+                    channel.chatId,
+                )
             }
         }
         return messagesById.values
