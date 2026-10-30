@@ -54,17 +54,11 @@ import kotlinx.coroutines.launch
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 
 /**
- * Account destinations for this build are intentionally limited to Telegram music
- * and the optional BYO-key AI personalization feature. The base player's unrelated
- * Navidrome, Jellyfin and ListenBrainz account flows remain in the source tree but
- * are not exposed from this screen.
+ * Account destinations are limited to Telegram and optional BYO-key AI personalization.
  */
-@Suppress("UNUSED_PARAMETER")
 @Composable
 fun AccountsScreen(
-    onBackClick: () -> Unit,
-    onOpenNavidromeDashboard: () -> Unit = {},
-    onOpenJellyfinDashboard: () -> Unit = {}
+    onBackClick: () -> Unit
 ) {
     val context = LocalContext.current
     val density = androidx.compose.ui.platform.LocalDensity.current

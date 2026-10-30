@@ -41,7 +41,7 @@ PixelPlayerOSS keeps the player FOSS-oriented and removes integrations that are 
 
 Removed integrations include Telegram, NetEase, QQ Music, Google Drive, Gemini, Cast, Wear OS, Play Store billing, Firebase, Crashlytics, and Google Play Services runtime dependencies.
 
-Cloud playback is limited to self-hosted sources: Navidrome/Subsonic and Jellyfin.
+This New PixelPlay fork exposes Telegram as its only cloud account and streaming provider. The local music library and offline playback remain available.
 
 ## Features
 
@@ -49,7 +49,7 @@ Cloud playback is limited to self-hosted sources: Navidrome/Subsonic and Jellyfi
 | --- | --- |
 | Playback | Media3 playback engine, FFmpeg support, gapless playback, crossfade, custom transitions, queue controls, shuffle, repeat, sleep timer, external file playback |
 | Library | Local scanning for MP3, FLAC, AAC, OGG, WAV, M4A, albums, artists, genres, folders, favorites, playlists, stats, metadata editing |
-| Self-hosted | Navidrome/Subsonic and Jellyfin login, sync, streaming, artwork, and app-private offline downloads |
+| Telegram | User-account sign-in, public/private channel discovery, audio indexing, and progressive playback with byte-range seeking |
 | Lyrics | Embedded lyrics, local `.lrc` files, lyrics import/editing, optional LRCLIB lookup |
 | Artwork | Local artwork, album-art palette extraction, optional Deezer artist image lookup |
 | Metadata | On-demand MusicBrainz matching for recording, release, and artist identifiers |
@@ -62,8 +62,6 @@ PixelPlayerOSS separates offline playback from network lookups.
 
 | Service | Purpose | Default |
 | --- | --- | --- |
-| Navidrome/Subsonic | Self-hosted library sync, streaming, and offline downloads | User login required |
-| Jellyfin | Self-hosted library sync, streaming, and offline downloads | User login required |
 | MusicBrainz | On-demand metadata matching and identifier enrichment | Only when requested |
 | LRCLIB | Search online lyrics when local or embedded lyrics are missing | Off |
 | Deezer | Fetch missing artist artwork and cache it locally | Off |
@@ -249,7 +247,7 @@ TELEGRAM_API_ID=your_api_id
 TELEGRAM_API_HASH=your_api_hash
 ```
 
-The app does not ship shared Telegram API credentials. TDLib's account database is stored in the app-private files directory and its database encryption key is stored using Android Keystore-backed encrypted preferences. Sign in from **Settings → Accounts → Telegram music**. You can add public usernames/links or private `t.me/+` invite links. Your Telegram account must already have access or be permitted to join.
+The app does not ship shared Telegram API credentials. TDLib's account database is stored in the app-private files directory and its database encryption key is stored using Android Keystore-backed encrypted preferences. Sign in from **Home → Cloud library → Telegram** or **Settings → Accounts → Telegram music**. Choose QR sign-in (scan using Telegram on an already signed-in device) or phone-number verification with optional two-step verification. You can add public usernames/links or private `t.me/+` invite links. Your Telegram account must already have access or be permitted to join.
 
 ### AI personalization
 

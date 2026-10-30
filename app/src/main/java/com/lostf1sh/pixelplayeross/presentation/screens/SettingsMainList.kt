@@ -4,7 +4,6 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountCircle
-import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material3.ColorScheme
@@ -87,13 +86,6 @@ internal sealed interface MainSettingsEntry {
             icon = Icons.Rounded.Lyrics,
             iconTone = SettingsIconTone.SECONDARY,
             route = Screen.LyricsSettings.createRoute()
-        ),
-        DOWNLOADS(
-            titleRes = R.string.cloud_downloads_title,
-            subtitleRes = R.string.cloud_downloads_settings_subtitle,
-            icon = Icons.Rounded.CloudDownload,
-            iconTone = SettingsIconTone.PRIMARY,
-            route = Screen.CloudDownloads.route
         ),
         ACCOUNTS(
             titleRes = R.string.settings_accounts_row_title,

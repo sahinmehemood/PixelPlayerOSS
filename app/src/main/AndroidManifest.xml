@@ -91,20 +91,6 @@
             android:theme="@style/Theme.PixelPlayer"
             android:windowSoftInputMode="adjustResize" />
 
-        <activity
-            android:name=".presentation.navidrome.auth.NavidromeLoginActivity"
-            android:exported="false"
-            android:label="Navidrome Login"
-            android:theme="@style/Theme.PixelPlayer"
-            android:windowSoftInputMode="adjustResize" />
-
-        <activity
-            android:name=".presentation.jellyfin.auth.JellyfinLoginActivity"
-            android:exported="false"
-            android:label="Jellyfin Login"
-            android:theme="@style/Theme.PixelPlayer"
-            android:windowSoftInputMode="adjustResize" />
-
 
         <activity
             android:name=".ExternalPlayerActivity"
