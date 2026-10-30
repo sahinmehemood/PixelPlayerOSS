@@ -1,5 +1,9 @@
 package com.lostf1sh.pixelplayeross.data.telegram
 
+import android.net.Uri
+import com.lostf1sh.pixelplayeross.data.database.TelegramChannelEntity
+import com.lostf1sh.pixelplayeross.data.database.TelegramDao
+import com.lostf1sh.pixelplayeross.data.database.TelegramSongEntity
 import com.lostf1sh.pixelplayeross.data.model.Song
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -18,6 +22,7 @@ class TelegramRepository @Inject constructor(
     private val clientManager: TelegramClientManager,
     private val streamProxy: TelegramStreamProxy,
     private val channelStore: TelegramChannelStore,
+    private val telegramDao: TelegramDao,
 ) {
     val authorizationState = clientManager.authorizationState
     val initializationError = clientManager.initializationError
@@ -65,12 +70,36 @@ class TelegramRepository @Inject constructor(
         }
         // Public channels can be browsed without joining them. Save the chat ID
         // separately so they remain visible in PixelPlayer after this screen closes.
+        val savedChannel = channel.copy(isSaved = true)
         channelStore.save(channel.chatId)
-        return channel.copy(isSaved = true)
+        telegramDao.upsertChannel(TelegramChannelEntity.from(savedChannel))
+        return savedChannel
     }
 
-    fun removeSavedChannel(chatId: Long) {
+    suspend fun removeSavedChannel(chatId: Long) {
         channelStore.remove(chatId)
+        telegramDao.setChannelSaved(chatId, isSaved = false)
+    }
+
+    suspend fun getCachedAudioMessages(channel: TelegramChannel): List<Song> =
+        telegramDao.getSongsByChatId(channel.chatId).map { it.toSong(channel.title) }
+
+    /**
+     * Turns a stable telegram://chatId/messageId URI into a fresh authenticated
+     * loopback URL for Media3. The URL is deliberately generated at playback time,
+     * never persisted in the queue or Telegram cache.
+     */
+    suspend fun resolveTelegramPlaybackUri(uriString: String): Uri {
+        val target = TelegramMessageUri.parse(uriString)
+            ?: throw IllegalArgumentException("This is not a valid Telegram media URI.")
+        check(clientManager.awaitReady(30_000L)) { "Sign in to Telegram before playing this track." }
+
+        val message = clientManager.sendRequest<TdApi.Message>(
+            TdApi.GetMessage(target.chatId, target.messageId),
+        )
+        val details = audioFileDetails(message)
+            ?: throw IllegalStateException("This Telegram message no longer contains a supported audio file.")
+        return Uri.parse(streamProxy.streamUrl(details.fileId, details.fileSize, details.mimeType))
     }
 
     private suspend fun joinPrivateInvite(inviteLink: String): TelegramChannel {
@@ -166,18 +195,32 @@ class TelegramRepository @Inject constructor(
             }.awaitAll()
         }
 
-        return resolvedChats.filterNotNull().mapNotNull { chat ->
+        val channels = resolvedChats.filterNotNull().mapNotNull { chat ->
             runCatching {
                 chat.toTelegramChannel().copy(isSaved = chat.id in savedChatIds)
             }.onFailure {
                 Timber.d(it, "Skipping non-channel Telegram chat %s", chat.id)
             }.getOrNull()
         }.sortedBy { it.title.lowercase() }
+
+        if (channels.isNotEmpty()) {
+            val cached = telegramDao.getChannels().associateBy { it.chatId }
+            telegramDao.upsertChannels(
+                channels.map { channel ->
+                    val previous = cached[channel.chatId]
+                    TelegramChannelEntity.from(
+                        channel = channel,
+                        songCount = previous?.songCount ?: 0,
+                        lastSyncTime = previous?.lastSyncTime ?: 0L,
+                    )
+                },
+            )
+        }
+        return channels
     }
 
     suspend fun getAudioMessages(channel: TelegramChannel): List<Song> {
         check(clientManager.awaitReady()) { "Telegram is not connected." }
-        streamProxy.ensureStarted()
         clientManager.sendRequest<TdApi.Ok>(TdApi.OpenChat(channel.chatId))
 
         // Search audio messages and generic documents: music files are often uploaded
@@ -222,73 +265,88 @@ class TelegramRepository @Inject constructor(
                 )
             }
         }
-        return messagesById.values
+        val cachedSongs = messagesById.values
             .sortedByDescending { it.date }
-            .mapNotNull { message -> mapAudioMessage(message, channel) }
+            .mapNotNull(::mapAudioMessage)
+
+        if (cachedSongs.isNotEmpty()) {
+            telegramDao.upsertSongs(cachedSongs)
+        }
+        val currentChannel = telegramDao.getChannel(channel.chatId)
+        telegramDao.upsertChannel(
+            TelegramChannelEntity.from(
+                channel = channel,
+                songCount = cachedSongs.size,
+                lastSyncTime = System.currentTimeMillis(),
+            ).copy(isSaved = currentChannel?.isSaved ?: channel.isSaved),
+        )
+        return cachedSongs.map { it.toSong(channel.title) }
     }
 
-    private suspend fun mapAudioMessage(message: TdApi.Message, channel: TelegramChannel): Song? {
-        val fileId: Int
-        val title: String
-        val performer: String
-        val durationMs: Long
-        val mimeType: String
-        when (val content = message.content) {
+    private fun mapAudioMessage(message: TdApi.Message): TelegramSongEntity? {
+        val details = audioFileDetails(message) ?: return null
+        if (details.fileId <= 0) return null
+
+        return TelegramSongEntity(
+            id = "telegram:${message.chatId}:${message.id}",
+            chatId = message.chatId,
+            messageId = message.id,
+            fileId = details.fileId,
+            title = details.title,
+            artist = details.artist,
+            duration = details.durationMs,
+            fileSize = details.fileSize,
+            mimeType = details.mimeType,
+            dateAdded = message.date.toLong(),
+            albumArtUri = null,
+        )
+    }
+
+    private data class AudioFileDetails(
+        val fileId: Int,
+        val fileSize: Long,
+        val title: String,
+        val artist: String,
+        val durationMs: Long,
+        val mimeType: String,
+    )
+
+    private fun audioFileDetails(message: TdApi.Message): AudioFileDetails? {
+        return when (val content = message.content) {
             is TdApi.MessageAudio -> {
                 val audio = content.audio
-                fileId = audio.audio.id
-                title = audio.title.ifBlank { audio.fileName.substringBeforeLast('.').ifBlank { "Unknown title" } }
-                performer = audio.performer.ifBlank { "Unknown artist" }
-                durationMs = audio.duration.toLong().coerceAtLeast(0L) * 1000L
-                mimeType = resolveAudioMimeType(audio.mimeType, audio.fileName)
+                AudioFileDetails(
+                    fileId = audio.audio.id,
+                    fileSize = audio.audio.size.toLong().coerceAtLeast(0L),
+                    title = audio.title.ifBlank {
+                        audio.fileName.substringBeforeLast('.').ifBlank { "Unknown title" }
+                    },
+                    artist = audio.performer.ifBlank { "Unknown artist" },
+                    durationMs = audio.duration.toLong().coerceAtLeast(0L) * 1_000L,
+                    mimeType = resolveAudioMimeType(audio.mimeType, audio.fileName),
+                )
             }
             is TdApi.MessageDocument -> {
                 val document = content.document
                 val fileName = document.fileName
-                val looksLikeAudio = document.mimeType.startsWith("audio/") ||
+                val extension = fileName.substringAfterLast('.', "").lowercase()
+                val isAudio = document.mimeType.startsWith("audio/") ||
                     document.mimeType == "application/ogg" ||
-                    fileName.substringAfterLast('.', "").lowercase() in
-                    setOf("mp3", "flac", "wav", "m4a", "ogg", "opus", "aac", "ape", "alac")
-                if (!looksLikeAudio) return null
-                fileId = document.document.id
-                title = fileName.substringBeforeLast('.').ifBlank { "Unknown title" }
-                performer = "Unknown artist"
-                durationMs = 0L
-                mimeType = resolveAudioMimeType(document.mimeType, fileName)
+                    extension in setOf(
+                        "mp3", "flac", "wav", "m4a", "ogg", "opus", "aac", "ape", "alac",
+                    )
+                if (!isAudio) return null
+                AudioFileDetails(
+                    fileId = document.document.id,
+                    fileSize = document.document.size.toLong().coerceAtLeast(0L),
+                    title = fileName.substringBeforeLast('.').ifBlank { "Unknown title" },
+                    artist = "Unknown artist",
+                    durationMs = 0L,
+                    mimeType = resolveAudioMimeType(document.mimeType, fileName),
+                )
             }
-            else -> return null
+            else -> null
         }
-
-        if (fileId <= 0) return null
-        val fileSize = when (val content = message.content) {
-            is TdApi.MessageAudio -> content.audio.audio.size.toLong()
-            is TdApi.MessageDocument -> content.document.document.size.toLong()
-            else -> 0L
-        }
-        val streamUrl = streamProxy.streamUrl(fileId, fileSize, mimeType)
-        return Song(
-            id = "telegram:${message.chatId}:${message.id}",
-            title = title,
-            artist = performer,
-            artistId = -1L,
-            album = channel.title,
-            albumId = -1L,
-            path = streamUrl,
-            contentUriString = streamUrl,
-            albumArtUriString = null,
-            duration = durationMs,
-            genre = null,
-            lyrics = null,
-            isFavorite = false,
-            trackNumber = 0,
-            discNumber = null,
-            year = 0,
-            dateAdded = message.date.toLong(),
-            dateModified = 0L,
-            mimeType = mimeType,
-            bitrate = null,
-            sampleRate = null,
-        )
     }
 
     private fun TdApi.Chat.toTelegramChannel(): TelegramChannel {
