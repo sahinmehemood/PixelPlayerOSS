@@ -93,7 +93,7 @@ class TelegramRepository @Inject constructor(
                 chatId = channel.chatId
                 query = ""
                 senderId = null
-                fromMessageId = fromMessageId
+                this.fromMessageId = fromMessageId
                 offset = 0
                 limit = 100
                 filter = TdApi.SearchMessagesFilterAudio()
@@ -120,6 +120,7 @@ class TelegramRepository @Inject constructor(
             is TdApi.MessageAudio -> {
                 val audio = content.audio
                 fileId = audio.audio.id
+                val fileSize = audio.audio.size.toLong()
                 title = audio.title.ifBlank { audio.fileName.substringBeforeLast('.').ifBlank { "Unknown title" } }
                 performer = audio.performer.ifBlank { "Unknown artist" }
                 durationMs = audio.duration.toLong().coerceAtLeast(0L) * 1000L
@@ -134,6 +135,7 @@ class TelegramRepository @Inject constructor(
                     setOf("mp3", "flac", "wav", "m4a", "ogg", "opus", "aac", "ape", "alac")
                 if (!looksLikeAudio) return null
                 fileId = document.document.id
+                val fileSize = document.document.size.toLong()
                 title = fileName.substringBeforeLast('.').ifBlank { "Unknown title" }
                 performer = "Unknown artist"
                 durationMs = 0L
@@ -143,7 +145,12 @@ class TelegramRepository @Inject constructor(
         }
 
         if (fileId <= 0) return null
-        val streamUrl = streamProxy.streamUrl(fileId, mimeType)
+        val fileSize = when (val content = message.content) {
+            is TdApi.MessageAudio -> content.audio.audio.size.toLong()
+            is TdApi.MessageDocument -> content.document.document.size.toLong()
+            else -> 0L
+        }
+        val streamUrl = streamProxy.streamUrl(fileId, fileSize, mimeType)
         return Song(
             id = "telegram:${message.chatId}:${message.id}",
             title = title,

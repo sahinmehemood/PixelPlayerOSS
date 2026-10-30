@@ -118,7 +118,7 @@ class TelegramStreamProxy @Inject constructor(
                                     }.getOrNull()
                                     if (refreshed != null) lastFileInfo = refreshed
 
-                                    val availablePrefix = lastFileInfo.local.downloadedPrefixSize.coerceAtLeast(0L)
+                                    val availablePrefix = lastFileInfo.local.downloadedPrefixSize.toLong().coerceAtLeast(0L)
                                     val availableEnd = minOf(end + 1L, availablePrefix, file.length())
                                     if (current < availableEnd) {
                                         randomAccess.seek(current)
@@ -158,11 +158,12 @@ class TelegramStreamProxy @Inject constructor(
         }
     }
 
-    suspend fun streamUrl(fileId: Int, mimeType: String): String {
+    suspend fun streamUrl(fileId: Int, size: Long, mimeType: String): String {
         ensureStarted()
         val safeMime = mimeType.takeIf { it.matches(Regex("^[A-Za-z0-9.+-]+/[A-Za-z0-9.+-]+$")) }
             ?: "audio/mpeg"
-        return "http://127.0.0.1:$port/stream/$fileId?mime=$safeMime"
+        val safeSize = size.takeIf { it in 1..MAX_STREAM_BYTES } ?: 0L
+        return "http://127.0.0.1:$port/stream/$fileId?size=$safeSize&mime=$safeMime"
     }
 
     private fun parseRange(header: String?, size: Long): Pair<Long, Long>? {
