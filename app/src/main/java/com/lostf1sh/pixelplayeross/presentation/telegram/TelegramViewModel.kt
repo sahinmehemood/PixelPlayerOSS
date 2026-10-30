@@ -196,7 +196,21 @@ class TelegramViewModel @Inject constructor(
     fun refreshJoinedChannels() {
         if (_uiState.value.isLoading) return
         runAction("Loading your Telegram channels…") {
-            val channels = telegramRepository.listJoinedChannels()
+            val channels = try {
+                telegramRepository.listJoinedChannels()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                val cached = telegramRepository.getCachedChannels()
+                if (cached.isEmpty()) throw error
+                _uiState.update {
+                    it.copy(
+                        channels = cached,
+                        status = "Showing ${cached.size} saved chats. Telegram could not refresh them: ${error.message ?: "connection unavailable"}.",
+                    )
+                }
+                return@runAction
+            }
             _uiState.update {
                 it.copy(
                     channels = channels,
