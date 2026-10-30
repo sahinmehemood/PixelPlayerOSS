@@ -19,6 +19,9 @@ import timber.log.Timber
 data class TelegramUiState(
     val authorizationState: TdApi.AuthorizationState? = null,
     val initializationError: String? = null,
+    val hasApiCredentials: Boolean = false,
+    val apiIdInput: String = "",
+    val apiHashInput: String = "",
     val phoneNumber: String = "",
     val code: String = "",
     val password: String = "",
@@ -39,6 +42,11 @@ class TelegramViewModel @Inject constructor(
     val uiState = _uiState.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            val hasCredentials = runCatching { telegramRepository.hasApiCredentials() }
+                .getOrDefault(false)
+            _uiState.update { it.copy(hasApiCredentials = hasCredentials) }
+        }
         viewModelScope.launch {
             telegramRepository.authorizationState.collect { authorization ->
                 _uiState.update { it.copy(authorizationState = authorization) }
@@ -62,6 +70,36 @@ class TelegramViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(error = "Telegram: ${error.message ?: "request failed"}")
                 }
+            }
+        }
+    }
+
+    fun updateApiId(value: String) = _uiState.update {
+        it.copy(apiIdInput = value.filter(Char::isDigit).take(10), error = null)
+    }
+
+    fun updateApiHash(value: String) = _uiState.update {
+        it.copy(apiHashInput = value.filter(Char::isLetterOrDigit).take(32), error = null)
+    }
+
+    fun submitApiCredentials() {
+        val state = _uiState.value
+        val apiId = state.apiIdInput.toIntOrNull()
+        val apiHash = state.apiHashInput.trim()
+        if (apiId == null || apiId <= 0) {
+            _uiState.update { it.copy(error = "Enter the positive numeric API ID from my.telegram.org.") }
+            return
+        }
+        runAction("Saving Telegram API credentials securely…") {
+            telegramRepository.configureApiCredentials(apiId, apiHash)
+            _uiState.update {
+                it.copy(
+                    apiIdInput = "",
+                    apiHashInput = "",
+                    hasApiCredentials = true,
+                    initializationError = null,
+                    status = "Telegram API credentials saved on this device. Connecting…",
+                )
             }
         }
     }
