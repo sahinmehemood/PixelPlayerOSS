@@ -20,15 +20,13 @@ class TelegramRepository @Inject constructor(
 
     fun isNativeLibraryLoaded(): Boolean = clientManager.isNativeLibraryLoaded()
 
-    fun configureApiCredentials(apiId: String, apiHash: String) {
-        val credentials = TelegramApiCredentials.parse(apiId, apiHash)
+    fun isReady(): Boolean = clientManager.isReady()
+
+    fun configureApiCredentials(apiId: Int, apiHash: String) {
+        TelegramApiCredentialsValidator.validate(apiId, apiHash)
+        val credentials = TelegramApiCredentials.parse(apiId.toString(), apiHash)
         clientManager.configureApiCredentials(credentials)
     }
-
-    fun isReady(): Boolean = clientManager.isReady()
-    fun hasApiCredentials(): Boolean = clientManager.hasApiCredentials()
-    fun configureApiCredentials(apiId: Int, apiHash: String) =
-        clientManager.configureApiCredentials(apiId, apiHash)
 
     suspend fun sendPhoneNumber(phoneNumber: String) = clientManager.sendPhoneNumber(phoneNumber)
     suspend fun checkAuthenticationCode(code: String) = clientManager.checkAuthenticationCode(code)
