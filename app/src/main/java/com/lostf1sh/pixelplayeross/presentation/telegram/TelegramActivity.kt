@@ -119,6 +119,45 @@ private fun TelegramMusicScreen(
             }
 
             if (state.authorizationState !is TdApi.AuthorizationStateReady) {
+                if (
+                    state.authorizationState == null &&
+                    !state.hasApiCredentials &&
+                    state.initializationError?.contains("API credentials") == true
+                ) {
+                    item {
+                        SectionCard(
+                            title = "Set up Telegram access",
+                            subtitle = "Create your Telegram API credentials at my.telegram.org. They are stored encrypted on this device and are never sent to the AI provider.",
+                        ) {
+                            OutlinedTextField(
+                                value = state.apiIdInput,
+                                onValueChange = viewModel::updateApiId,
+                                label = { Text("Telegram API ID") },
+                                placeholder = { Text("Numeric API ID") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            OutlinedTextField(
+                                value = state.apiHashInput,
+                                onValueChange = viewModel::updateApiHash,
+                                label = { Text("Telegram API hash") },
+                                placeholder = { Text("32-character API hash") },
+                                visualTransformation = PasswordVisualTransformation(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Button(
+                                onClick = viewModel::submitApiCredentials,
+                                enabled = !state.isLoading,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text("Save securely and continue")
+                            }
+                        }
+                    }
+                } else {
                 when (state.authorizationState) {
                     is TdApi.AuthorizationStateWaitPhoneNumber -> {
                         item {
@@ -183,6 +222,7 @@ private fun TelegramMusicScreen(
                             }
                         }
                     }
+                }
                 }
             } else {
                 item {
