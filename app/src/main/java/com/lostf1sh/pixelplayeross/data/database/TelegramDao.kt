@@ -78,6 +78,25 @@ interface TelegramDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertTopics(topics: List<TelegramTopicEntity>)
 
+    @Transaction
+    suspend fun replaceTopicsForChat(chatId: Long, topics: List<TelegramTopicEntity>) {
+        deleteTopicsByChat(chatId)
+        if (topics.isNotEmpty()) upsertTopics(topics)
+    }
+
+    @Transaction
+    suspend fun replaceTopicSnapshot(topic: TelegramTopicEntity, songs: List<TelegramSongEntity>) {
+        upsertTopics(listOf(topic))
+        deleteSongsByTopic(topic.chatId, topic.threadId)
+        if (songs.isNotEmpty()) upsertSongs(songs)
+    }
+
+    @Transaction
+    suspend fun mergeTopicSnapshot(topic: TelegramTopicEntity, songs: List<TelegramSongEntity>) {
+        upsertTopics(listOf(topic))
+        if (songs.isNotEmpty()) upsertSongs(songs)
+    }
+
     @Query("SELECT * FROM telegram_topics WHERE chat_id = :chatId ORDER BY name COLLATE NOCASE ASC")
     fun observeTopics(chatId: Long): Flow<List<TelegramTopicEntity>>
 
