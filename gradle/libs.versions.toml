@@ -66,7 +66,7 @@ dagger = "2.60.1"
 javax-inject = "1"
 
 # Annotations procesing
-ksp = "2.3.10"
+ksp = "2.3.12"
 smoothCornerRectAndroidCompose = "v1.0.0"
 wavySlider = "2.2.0"
 workRuntimeKtx = "2.11.2"
