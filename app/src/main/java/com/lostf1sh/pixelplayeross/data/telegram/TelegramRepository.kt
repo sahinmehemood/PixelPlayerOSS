@@ -601,6 +601,7 @@ class TelegramRepository @Inject constructor(
             mimeType = details.mimeType,
             dateAdded = message.date.toLong(),
             albumArtUri = null,
+            threadId = threadId ?: message.messageThreadId.takeIf { it > 0L },
         )
     }
 
