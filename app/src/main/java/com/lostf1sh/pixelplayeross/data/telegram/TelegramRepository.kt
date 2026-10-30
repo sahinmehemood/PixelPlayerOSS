@@ -4,6 +4,7 @@ import android.net.Uri
 import com.lostf1sh.pixelplayeross.data.database.TelegramChannelEntity
 import com.lostf1sh.pixelplayeross.data.database.TelegramDao
 import com.lostf1sh.pixelplayeross.data.database.TelegramSongEntity
+import com.lostf1sh.pixelplayeross.data.database.TelegramTopicEntity
 import com.lostf1sh.pixelplayeross.data.model.Song
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -28,6 +29,8 @@ class TelegramRepository @Inject constructor(
     val initializationError = clientManager.initializationError
     companion object {
         private const val CHAT_RESOLUTION_CONCURRENCY = 8
+        private const val MAX_TOPIC_PAGES = 100
+        private const val TOPIC_PAGE_SIZE = 100
         private const val SEARCH_PAGE_SIZE = 100
         private const val MAX_SEARCH_PAGES = 200
     }
@@ -96,8 +99,120 @@ class TelegramRepository @Inject constructor(
     suspend fun getCachedChannels(): List<TelegramChannel> =
         telegramDao.getChannels().map(TelegramChannelEntity::toTelegramChannel)
 
-    suspend fun getCachedAudioMessages(channel: TelegramChannel): List<Song> =
-        telegramDao.getSongsByChatId(channel.chatId).map { it.toSong(channel.title) }
+    suspend fun getCachedAudioMessages(
+        channel: TelegramChannel,
+        threadId: Long? = null,
+    ): List<Song> {
+        val rows = if (threadId == null) {
+            telegramDao.getSongsByChatId(channel.chatId)
+        } else {
+            telegramDao.getSongsByTopic(channel.chatId, threadId)
+        }
+        return rows.map { it.toSong(channel.title) }
+    }
+
+    /**
+     * Fetch forum topics using TDLib's typed offsets. A bounded page loop and
+     * cursor-progress check prevent a malformed server response from hanging sync.
+     */
+    suspend fun getForumTopics(channel: TelegramChannel): List<TelegramTopicEntity> {
+        check(clientManager.awaitReady()) { "Telegram is not connected." }
+
+        val chat = clientManager.sendRequest<TdApi.Chat>(TdApi.GetChat(channel.chatId))
+        val supergroupType = chat.type as? TdApi.ChatTypeSupergroup
+            ?: run {
+                telegramDao.replaceTopicsForChat(channel.chatId, emptyList())
+                return emptyList()
+            }
+        val supergroup = clientManager.sendRequest<TdApi.Supergroup>(
+            TdApi.GetSupergroup(supergroupType.supergroupId),
+        )
+        if (!supergroup.isForum) {
+            telegramDao.replaceTopicsForChat(channel.chatId, emptyList())
+            return emptyList()
+        }
+
+        val existing = telegramDao.getTopics(channel.chatId).associateBy { it.threadId }
+        val found = linkedMapOf<Long, TelegramTopicEntity>()
+        var offsetDate = 0
+        var offsetMessageId = 0L
+        var offsetMessageThreadId = 0L
+        var page = 0
+        var reachedEnd = false
+
+        while (page < MAX_TOPIC_PAGES) {
+            val response = clientManager.sendRequest<TdApi.ForumTopics>(
+                TdApi.GetForumTopics().apply {
+                    chatId = channel.chatId
+                    query = ""
+                    this.offsetDate = offsetDate
+                    this.offsetMessageId = offsetMessageId
+                    this.offsetMessageThreadId = offsetMessageThreadId
+                    limit = TOPIC_PAGE_SIZE
+                },
+            )
+
+            if (response.topics.isEmpty()) {
+                reachedEnd = true
+                break
+            }
+
+            response.topics.forEach { topic ->
+                val info = topic.info
+                val threadId = info.messageThreadId
+                if (threadId > 0L) {
+                    val previous = existing[threadId]
+                    found[threadId] = TelegramTopicEntity(
+                        id = "${channel.chatId}:$threadId",
+                        chatId = channel.chatId,
+                        threadId = threadId,
+                        name = info.name.ifBlank { "Untitled topic" },
+                        songCount = previous?.songCount ?: 0,
+                        lastSyncTime = previous?.lastSyncTime ?: 0L,
+                        iconEmoji = previous?.iconEmoji,
+                    )
+                }
+            }
+
+            val nextDate = response.nextOffsetDate
+            val nextMessageId = response.nextOffsetMessageId
+            val nextThreadId = response.nextOffsetMessageThreadId
+            if (
+                nextDate == 0 &&
+                nextMessageId == 0L &&
+                nextThreadId == 0L
+            ) {
+                reachedEnd = true
+                break
+            }
+            if (
+                nextDate == offsetDate &&
+                nextMessageId == offsetMessageId &&
+                nextThreadId == offsetMessageThreadId
+            ) {
+                Timber.w("Telegram forum topic pagination did not advance for chat %s", channel.chatId)
+                break
+            }
+
+            offsetDate = nextDate
+            offsetMessageId = nextMessageId
+            offsetMessageThreadId = nextThreadId
+            page += 1
+        }
+
+        val result = if (reachedEnd) {
+            telegramDao.replaceTopicsForChat(channel.chatId, found.values.toList())
+            found.values.toList()
+        } else {
+            // Retain topics from the last complete index if Telegram only returned a
+            // partial page sequence. Merge any newly resolved topics for this session.
+            val merged = (existing + found).values
+                .sortedBy { it.name.lowercase() }
+            telegramDao.upsertTopics(found.values.toList())
+            merged
+        }
+        return result.sortedBy { it.name.lowercase() }
+    }
 
     /**
      * Turns a stable telegram://chatId/messageId URI into a fresh authenticated
@@ -277,16 +392,29 @@ class TelegramRepository @Inject constructor(
     suspend fun getAudioMessages(
         channel: TelegramChannel,
         forceRefresh: Boolean = false,
+        threadId: Long? = null,
     ): List<Song> {
         check(clientManager.awaitReady()) { "Telegram is not connected." }
 
         val cachedChannel = telegramDao.getChannel(channel.chatId)
-        val cachedRows = telegramDao.getSongsByChatId(channel.chatId)
+        val cachedTopic = threadId?.let { selectedThread ->
+            telegramDao.getTopics(channel.chatId).firstOrNull { it.threadId == selectedThread }
+        }
+        val cachedRows = if (threadId == null) {
+            telegramDao.getSongsByChatId(channel.chatId)
+        } else {
+            telegramDao.getSongsByTopic(channel.chatId, threadId)
+        }
         val now = System.currentTimeMillis()
+        val lastSyncTime = if (threadId == null) {
+            cachedChannel?.lastSyncTime ?: 0L
+        } else {
+            cachedTopic?.lastSyncTime ?: 0L
+        }
         if (
             !forceRefresh &&
             TelegramAudioCachePolicy.isFresh(
-                lastSyncTimeMs = cachedChannel?.lastSyncTime ?: 0L,
+                lastSyncTimeMs = lastSyncTime,
                 nowMs = now,
                 hasTracks = cachedRows.isNotEmpty(),
             )
@@ -321,6 +449,7 @@ class TelegramRepository @Inject constructor(
                         offset = 0
                         limit = SEARCH_PAGE_SIZE
                         this.filter = filter
+                        messageThreadId = threadId ?: 0L
                     }
                     val response = clientManager.sendRequest<TdApi.FoundChatMessages>(request)
                     if (response.messages.isEmpty()) {
@@ -388,20 +517,35 @@ class TelegramRepository @Inject constructor(
 
         val scannedRows = messagesById.values
             .sortedByDescending { it.date }
-            .mapNotNull(::mapAudioMessage)
+            .mapNotNull { message -> mapAudioMessage(message, threadId) }
 
         val previousChannel = cachedChannel ?: telegramDao.getChannel(channel.chatId)
         val isSaved = previousChannel?.isSaved ?: channel.isSaved
+        val previousTopic = cachedTopic ?: threadId?.let { selectedThread ->
+            telegramDao.getTopics(channel.chatId).firstOrNull { it.threadId == selectedThread }
+        }
 
         val finalRows = if (failedFilters == 0) {
-            // Both filters reached the end: this is a complete snapshot. Removing
-            // obsolete rows and writing replacements happens in one Room transaction.
-            val snapshot = TelegramChannelEntity.from(
-                channel = channel.copy(isSaved = isSaved),
-                songCount = scannedRows.size,
-                lastSyncTime = System.currentTimeMillis(),
-            )
-            telegramDao.replaceChannelSnapshot(snapshot, scannedRows)
+            if (threadId == null) {
+                // A complete all-channel scan replaces the channel snapshot atomically.
+                val snapshot = TelegramChannelEntity.from(
+                    channel = channel.copy(isSaved = isSaved),
+                    songCount = scannedRows.size,
+                    lastSyncTime = System.currentTimeMillis(),
+                )
+                telegramDao.replaceChannelSnapshot(snapshot, scannedRows)
+            } else {
+                val snapshot = TelegramTopicEntity(
+                    id = "${channel.chatId}:$threadId",
+                    chatId = channel.chatId,
+                    threadId = threadId,
+                    name = previousTopic?.name ?: "Topic $threadId",
+                    songCount = scannedRows.size,
+                    lastSyncTime = System.currentTimeMillis(),
+                    iconEmoji = previousTopic?.iconEmoji,
+                )
+                telegramDao.replaceTopicSnapshot(snapshot, scannedRows)
+            }
             scannedRows
         } else {
             // At least one filter was incomplete. Merge the newly discovered rows
@@ -413,19 +557,35 @@ class TelegramRepository @Inject constructor(
                     compareByDescending<TelegramSongEntity> { it.dateAdded }
                         .thenByDescending { it.messageId },
                 )
-            val snapshot = TelegramChannelEntity.from(
-                channel = channel.copy(isSaved = isSaved),
-                songCount = mergedRows.size,
-                lastSyncTime = previousChannel?.lastSyncTime ?: 0L,
-            )
-            telegramDao.mergeChannelSnapshot(snapshot, scannedRows)
+            if (threadId == null) {
+                val snapshot = TelegramChannelEntity.from(
+                    channel = channel.copy(isSaved = isSaved),
+                    songCount = mergedRows.size,
+                    lastSyncTime = previousChannel?.lastSyncTime ?: 0L,
+                )
+                telegramDao.mergeChannelSnapshot(snapshot, scannedRows)
+            } else {
+                val snapshot = TelegramTopicEntity(
+                    id = "${channel.chatId}:$threadId",
+                    chatId = channel.chatId,
+                    threadId = threadId,
+                    name = previousTopic?.name ?: "Topic $threadId",
+                    songCount = mergedRows.size,
+                    lastSyncTime = previousTopic?.lastSyncTime ?: 0L,
+                    iconEmoji = previousTopic?.iconEmoji,
+                )
+                telegramDao.mergeTopicSnapshot(snapshot, scannedRows)
+            }
             mergedRows
         }
 
         return finalRows.map { it.toSong(channel.title) }
     }
 
-    private fun mapAudioMessage(message: TdApi.Message): TelegramSongEntity? {
+    private fun mapAudioMessage(
+        message: TdApi.Message,
+        threadId: Long? = null,
+    ): TelegramSongEntity? {
         val details = audioFileDetails(message) ?: return null
         if (details.fileId <= 0) return null
 
