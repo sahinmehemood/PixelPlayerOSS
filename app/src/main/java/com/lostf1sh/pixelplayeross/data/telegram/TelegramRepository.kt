@@ -37,12 +37,18 @@ class TelegramRepository @Inject constructor(
         clientManager.configureApiCredentials(credentials)
     }
 
-    suspend fun resetApiCredentials() = clientManager.resetApiCredentials()
+    suspend fun resetApiCredentials() {
+        clientManager.resetApiCredentials()
+        streamProxy.invalidateSession()
+    }
 
     suspend fun sendPhoneNumber(phoneNumber: String) = clientManager.sendPhoneNumber(phoneNumber)
     suspend fun checkAuthenticationCode(code: String) = clientManager.checkAuthenticationCode(code)
     suspend fun checkAuthenticationPassword(password: String) = clientManager.checkAuthenticationPassword(password)
-    suspend fun logout() = clientManager.logout()
+    suspend fun logout() {
+        clientManager.logout()
+        streamProxy.invalidateSession()
+    }
 
     suspend fun addChannel(input: String): TelegramChannel {
         check(clientManager.awaitReady()) { "Sign in to Telegram before adding a channel." }
