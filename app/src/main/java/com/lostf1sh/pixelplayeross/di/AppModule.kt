@@ -32,7 +32,6 @@ import com.lostf1sh.pixelplayeross.data.database.MIGRATION_5_6
 import com.lostf1sh.pixelplayeross.data.database.MIGRATION_6_7
 import com.lostf1sh.pixelplayeross.data.database.TelegramDao
 import com.lostf1sh.pixelplayeross.data.database.MusicDao
-import com.lostf1sh.pixelplayeross.data.database.OfflineTrackDao
 import com.lostf1sh.pixelplayeross.data.database.PixelPlayerDatabase
 import com.lostf1sh.pixelplayeross.data.database.SearchHistoryDao
 import com.lostf1sh.pixelplayeross.data.database.TransitionDao
@@ -220,12 +219,6 @@ object AppModule {
     @Provides
     fun provideAudioBookmarkDao(database: PixelPlayerDatabase): AudioBookmarkDao {
         return database.audioBookmarkDao()
-    }
-
-    @Singleton
-    @Provides
-    fun provideOfflineTrackDao(database: PixelPlayerDatabase): OfflineTrackDao {
-        return database.offlineTrackDao()
     }
 
     @Singleton
