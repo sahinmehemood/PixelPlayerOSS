@@ -57,7 +57,6 @@ import coil.request.ImageRequest
 import com.lostf1sh.pixelplayeross.R
 import com.lostf1sh.pixelplayeross.data.model.Artist
 import com.lostf1sh.pixelplayeross.data.model.Song
-import com.lostf1sh.pixelplayeross.data.offline.CloudOfflineRepository
 import com.lostf1sh.pixelplayeross.data.preferences.AlbumArtPaletteStyle
 import com.lostf1sh.pixelplayeross.presentation.components.AutoScrollingTextOnDemand
 import com.lostf1sh.pixelplayeross.presentation.components.EditMultipleSongsSheet
@@ -77,7 +76,6 @@ import com.lostf1sh.pixelplayeross.presentation.components.subcomps.SelectionCou
 import com.lostf1sh.pixelplayeross.presentation.screens.QuickFillDialog
 import com.lostf1sh.pixelplayeross.presentation.selection.dragToSelect
 import com.lostf1sh.pixelplayeross.presentation.selection.rememberDragToSelectState
-import com.lostf1sh.pixelplayeross.presentation.viewmodel.CloudDownloadsViewModel
 import com.lostf1sh.pixelplayeross.presentation.viewmodel.GenreDetailListItem
 import com.lostf1sh.pixelplayeross.presentation.viewmodel.GenreDetailViewModel
 import com.lostf1sh.pixelplayeross.presentation.viewmodel.SortOption
@@ -110,7 +108,6 @@ fun GenreDetailScreen(
     playerViewModel: PlayerViewModel,
     viewModel: GenreDetailViewModel = hiltViewModel(),
     playlistViewModel: com.lostf1sh.pixelplayeross.presentation.viewmodel.PlaylistViewModel = hiltViewModel(),
-    cloudDownloadsViewModel: CloudDownloadsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val stablePlayerState by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
@@ -717,19 +714,6 @@ fun GenreDetailScreen(
                     },
                     onShareAll = {
                         playerViewModel.shareSelectedAsZip(selectedSongs)
-                        showMultiSelectionSheet = false
-                    },
-                    onDownloadAll = {
-                        val cloudSongCount = CloudOfflineRepository.downloadCandidates(selectedSongs).size
-                        cloudDownloadsViewModel.downloadSelected(selectedSongs)
-                        multiSelectionState.clearSelection()
-                        playerViewModel.sendToast(
-                            context.resources.getQuantityString(
-                                R.plurals.cloud_download_selected_started,
-                                cloudSongCount,
-                                cloudSongCount
-                            )
-                        )
                         showMultiSelectionSheet = false
                     },
                     onDeleteAll = { deleteActivity, onComplete ->
