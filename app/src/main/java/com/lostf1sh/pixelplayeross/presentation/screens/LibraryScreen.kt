@@ -2223,8 +2223,6 @@ private fun LibraryInlineSyncIndicator(
                 stringResource(R.string.library_background_sync_lyrics)
             SyncProgress.SyncPhase.CLEANING_CACHE ->
                 stringResource(R.string.library_background_sync_cache)
-            SyncProgress.SyncPhase.SYNCING_CLOUD ->
-                stringResource(R.string.library_background_sync_cloud)
             else ->
                 stringResource(R.string.sync_in_progress)
         }
