@@ -12,8 +12,6 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import androidx.work.WorkManager
-import com.lostf1sh.pixelplayeross.data.worker.JellyfinSyncWorker
-import com.lostf1sh.pixelplayeross.data.worker.NavidromeSyncWorker
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import com.lostf1sh.pixelplayeross.data.diagnostics.AdvancedPerformanceDiagnosticsController
@@ -176,11 +174,28 @@ class PixelPlayerApplication : Application(), ImageLoaderFactory, Configuration.
      */
     private fun cancelLegacyCloudWork() {
         val workManager = WorkManager.getInstance(this)
-        workManager.cancelAllWorkByTag(NavidromeSyncWorker::class.java.name)
-        workManager.cancelAllWorkByTag(JellyfinSyncWorker::class.java.name)
+        workManager.cancelAllWorkByTag("com.lostf1sh.pixelplayeross.data.worker.NavidromeSyncWorker")
+        workManager.cancelAllWorkByTag("com.lostf1sh.pixelplayeross.data.worker.JellyfinSyncWorker")
+        workManager.cancelAllWorkByTag("com.lostf1sh.pixelplayeross.data.worker.CloudTrackDownloadWorker")
         workManager.cancelAllWorkByTag("cloud_track_download")
-        workManager.cancelUniqueWork(NavidromeSyncWorker.WORK_NAME_ALL)
-        workManager.cancelUniqueWork(JellyfinSyncWorker.WORK_NAME_ALL)
+        workManager.cancelUniqueWork("navidrome_sync_all")
+        workManager.cancelUniqueWork("jellyfin_sync_all")
+
+        // Remove credentials left by the retired providers, including the old
+        // plaintext fallback files. Telegram and AI credentials use separate,
+        // encrypted storage and are not touched by this migration.
+        val migrationState = getSharedPreferences("legacy_cloud_cleanup", Context.MODE_PRIVATE)
+        if (!migrationState.getBoolean("credentials_removed_v1", false)) {
+            listOf(
+                "navidrome_prefs",
+                "navidrome_prefs_plain",
+                "jellyfin_prefs",
+                "jellyfin_prefs_plain",
+            ).forEach(::deleteSharedPreferences)
+            migrationState.edit()
+                .putBoolean("credentials_removed_v1", true)
+                .apply()
+        }
     }
 
     override fun newImageLoader(): ImageLoader {
