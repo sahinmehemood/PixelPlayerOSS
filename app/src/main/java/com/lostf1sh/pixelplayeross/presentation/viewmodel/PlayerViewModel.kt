@@ -347,9 +347,6 @@ class PlayerViewModel @Inject constructor(
 
 
 
-    private val _playlistPickerStorageFilter = MutableStateFlow(com.lostf1sh.pixelplayeross.data.model.StorageFilter.OFFLINE)
-    val playlistPickerStorageFilter: StateFlow<com.lostf1sh.pixelplayeross.data.model.StorageFilter> = _playlistPickerStorageFilter.asStateFlow()
-
     /**
      * Paginated songs for efficient display in LibraryScreen.
      * Uses Paging 3 for memory-efficient loading of large libraries.
@@ -359,31 +356,21 @@ class PlayerViewModel @Inject constructor(
         .cachedIn(viewModelScope)
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val playlistPickerFavoriteSongs: Flow<PagingData<Song>> = combine(
-        libraryStateHolder.currentSongSortOption,
-        _playlistPickerStorageFilter
-    ) { sortOption, storageFilter ->
-        sortOption to storageFilter
-    }
-        .flatMapLatest { (sortOption, storageFilter) ->
+    val playlistPickerFavoriteSongs: Flow<PagingData<Song>> = libraryStateHolder.currentSongSortOption
+        .flatMapLatest { sortOption ->
             musicRepository.getPaginatedFavoriteSongs(
                 sortOption = sortOption,
-                storageFilter = storageFilter
+                storageFilter = com.lostf1sh.pixelplayeross.data.model.StorageFilter.OFFLINE
             )
         }
         .cachedIn(viewModelScope)
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val playlistPickerSongs: Flow<PagingData<Song>> = combine(
-        libraryStateHolder.currentSongSortOption,
-        _playlistPickerStorageFilter
-    ) { sortOption, storageFilter ->
-        sortOption to storageFilter
-    }
-        .flatMapLatest { (sortOption, storageFilter) ->
+    val playlistPickerSongs: Flow<PagingData<Song>> = libraryStateHolder.currentSongSortOption
+        .flatMapLatest { sortOption ->
             musicRepository.getPaginatedSongs(
                 sortOption = sortOption,
-                storageFilter = storageFilter
+                storageFilter = com.lostf1sh.pixelplayeross.data.model.StorageFilter.OFFLINE
             )
         }
         .cachedIn(viewModelScope)
@@ -1929,10 +1916,6 @@ class PlayerViewModel @Inject constructor(
 
     fun setStorageFilter(filter: com.lostf1sh.pixelplayeross.data.model.StorageFilter) {
         libraryStateHolder.setStorageFilter(filter)
-    }
-
-    fun setPlaylistPickerStorageFilter(filter: com.lostf1sh.pixelplayeross.data.model.StorageFilter) {
-        _playlistPickerStorageFilter.value = filter
     }
 
     fun toggleStorageFilter() {
