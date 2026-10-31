@@ -7,7 +7,6 @@ import androidx.lifecycle.viewModelScope
 import com.lostf1sh.pixelplayeross.data.model.Album
 import com.lostf1sh.pixelplayeross.data.model.Song
 import com.lostf1sh.pixelplayeross.data.repository.MusicRepository
-import com.lostf1sh.pixelplayeross.data.offline.CloudOfflineRepository
 import com.lostf1sh.pixelplayeross.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -17,9 +16,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -34,16 +30,11 @@ data class AlbumDetailUiState(
 class AlbumDetailViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val musicRepository: MusicRepository,
-    private val cloudOfflineRepository: CloudOfflineRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AlbumDetailUiState())
     val uiState: StateFlow<AlbumDetailUiState> = _uiState.asStateFlow()
-    val completedOfflineUris: StateFlow<Set<String>> = cloudOfflineRepository.observeCompleted()
-        .map { downloads -> downloads.mapTo(mutableSetOf()) { it.sourceUri } }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
-
     private var loadedAlbumId: Long? = null
 
     init {
@@ -123,14 +114,4 @@ class AlbumDetailViewModel @Inject constructor(
         }
     }
 
-    fun downloadAlbum(songs: List<Song>) {
-        viewModelScope.launch { cloudOfflineRepository.enqueueAll(songs) }
-    }
-
-    fun removeAlbumDownloads(songs: List<Song>) {
-        viewModelScope.launch {
-            songs.filter(CloudOfflineRepository::isCloudSong)
-                .forEach { cloudOfflineRepository.remove(it) }
-        }
-    }
 }
