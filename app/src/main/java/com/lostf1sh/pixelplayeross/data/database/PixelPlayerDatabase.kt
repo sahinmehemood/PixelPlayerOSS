@@ -46,7 +46,6 @@ abstract class PixelPlayerDatabase : RoomDatabase() {
     abstract fun jellyfinDao(): JellyfinDao
     abstract fun listenBrainzDao(): ListenBrainzDao
     abstract fun audioBookmarkDao(): AudioBookmarkDao
-    abstract fun offlineTrackDao(): OfflineTrackDao
     abstract fun telegramDao(): TelegramDao
 
     companion object {
