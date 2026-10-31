@@ -700,7 +700,7 @@ class PlayerViewModel @Inject constructor(
     ): com.lostf1sh.pixelplayeross.data.model.StorageFilter {
         return effectiveLibraryStorageFilter(
             selected = state.currentStorageFilter,
-            hideLocalMedia = state.hideLocalMedia,
+            hideLocalMedia = false,
         )
     }
 
@@ -1449,7 +1449,7 @@ class PlayerViewModel @Inject constructor(
         Timber.tag("ShuffleDebug").d("shuffleFavoriteSongs called.")
 
         viewModelScope.launch {
-            val favSongs = musicRepository.getFavoriteSongsOnce(playerUiState.value.currentStorageFilter)
+            val favSongs = musicRepository.getFavoriteSongsOnce(currentEffectiveLibraryStorageFilter())
             if (favSongs.isNotEmpty()) {
                 playSongsShuffled(
                     favSongs,
@@ -1858,13 +1858,6 @@ class PlayerViewModel @Inject constructor(
                 }
             }
             viewModelScope.launch {
-                userPreferencesRepository.hideLocalMediaFlow.collect { hide ->
-                    _playerUiState.update { it.copy(hideLocalMedia = hide) }
-                }
-            }
-
-
-            viewModelScope.launch {
                 val savedRepeatMode = userPreferencesRepository.repeatModeFlow.first()
                 applyPreferredRepeatMode(savedRepeatMode)
             }
@@ -1949,12 +1942,6 @@ class PlayerViewModel @Inject constructor(
 
     fun setPlaylistPickerStorageFilter(filter: com.lostf1sh.pixelplayeross.data.model.StorageFilter) {
         _playlistPickerStorageFilter.value = filter
-    }
-
-    fun setHideLocalMedia(hide: Boolean) {
-        viewModelScope.launch {
-            userPreferencesRepository.setHideLocalMedia(hide)
-        }
     }
 
     fun toggleStorageFilter() {
