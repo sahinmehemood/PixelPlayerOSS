@@ -10,14 +10,18 @@ class LibrarySelectionUtilsTest {
     private data class Item(val id: Long, val label: String)
 
     @Test
-    fun `hidden local media forces online filter for category batch actions`() {
+    fun `legacy cloud filters never hide or expose non local library rows`() {
         assertEquals(
-            StorageFilter.ONLINE,
-            effectiveLibraryStorageFilter(StorageFilter.ALL, hideLocalMedia = true),
+            StorageFilter.OFFLINE,
+            effectiveLibraryStorageFilter(StorageFilter.ALL, hideLocalMedia = false),
         )
         assertEquals(
             StorageFilter.OFFLINE,
-            effectiveLibraryStorageFilter(StorageFilter.OFFLINE, hideLocalMedia = false),
+            effectiveLibraryStorageFilter(StorageFilter.ONLINE, hideLocalMedia = false),
+        )
+        assertEquals(
+            StorageFilter.OFFLINE,
+            effectiveLibraryStorageFilter(StorageFilter.ONLINE, hideLocalMedia = true),
         )
     }
 
