@@ -11,10 +11,10 @@ internal object TelegramTopicPagination {
     data class Cursor(
         val date: Int,
         val messageId: Long,
-        val messageThreadId: Long,
+        val forumTopicId: Int,
     ) {
         val isTerminal: Boolean
-            get() = date == 0 && messageId == 0L && messageThreadId == 0L
+            get() = date == 0 && messageId == 0L && forumTopicId == 0
 
         fun advancesFrom(previous: Cursor): Boolean = this != previous
     }
