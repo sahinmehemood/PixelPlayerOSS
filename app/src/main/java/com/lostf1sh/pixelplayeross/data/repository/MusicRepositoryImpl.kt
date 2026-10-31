@@ -309,10 +309,6 @@ class MusicRepositoryImpl @Inject constructor(
         return musicDao.getSongCount().distinctUntilChanged()
     }
 
-    override fun getCloudSongCountFlow(): Flow<Int> {
-        return musicDao.getCloudSongCount().distinctUntilChanged()
-    }
-
     override suspend fun getRandomSongs(limit: Int): List<Song> = withContext(Dispatchers.IO) {
         val filter = cachedDirFilter.value
         musicDao.getRandomSongs(limit, filter.allowedParentDirs, filter.applyFilter).map { it.toSong() }
