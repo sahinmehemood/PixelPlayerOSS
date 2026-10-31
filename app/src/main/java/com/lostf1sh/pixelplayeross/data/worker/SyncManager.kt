@@ -50,7 +50,6 @@ data class SyncProgress(
         SAVING_TO_DATABASE,
         SCANNING_LRC,
         CLEANING_CACHE,
-        SYNCING_CLOUD,
         COMPLETING
     }
 
@@ -136,7 +135,7 @@ class SyncManager @Inject constructor(
     }
 
     /**
-     * Schedules the once-a-day heavy maintenance (LRC/cache/cloud). Uses a dedicated unique
+     * Schedules the once-a-day heavy maintenance (LRC/cache). Uses a dedicated unique
      * name distinct from [SyncWorker.WORK_NAME], so it never drives the foreground sync
      * indicator. KEEP preserves the existing schedule across launches.
      */
@@ -223,7 +222,7 @@ class SyncManager @Inject constructor(
     /**
      * Emits `true` while the worker is performing background maintenance that does
      * not gate the user's pull-to-refresh gesture: LRC scanning, album-art cache
-     * cleanup, and cloud-source synchronization. This drives the slim linear
+     * cleanup. This worker never synchronizes remote music providers. This drives the slim linear
      * indicator under [LibraryActionRow].
      */
     val isPerformingMaintenance: Flow<Boolean> = syncProgress
@@ -289,7 +288,7 @@ class SyncManager @Inject constructor(
     }
 
     /**
-     * Rebuilds local MediaStore-backed songs from scratch while preserving cloud sources.
+     * Rebuilds local MediaStore-backed songs from scratch while preserving Telegram channel and message caches.
      * Local imported lyrics, favorites, and user metadata edits are removed for the rebuilt songs.
      * Use when local library data is corrupted or songs are missing.
      */
@@ -561,7 +560,6 @@ class SyncManager @Inject constructor(
         private val MAINTENANCE_PHASES = setOf(
             SyncProgress.SyncPhase.SCANNING_LRC,
             SyncProgress.SyncPhase.CLEANING_CACHE,
-            SyncProgress.SyncPhase.SYNCING_CLOUD,
             SyncProgress.SyncPhase.COMPLETING
         )
     }
