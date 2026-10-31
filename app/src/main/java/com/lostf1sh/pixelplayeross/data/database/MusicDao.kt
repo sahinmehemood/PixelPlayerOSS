@@ -268,41 +268,6 @@ interface MusicDao {
     """)
     suspend fun refreshAlbumSongCounts()
 
-    @Query("SELECT id FROM songs WHERE source_type = 5")
-    suspend fun getAllNavidromeSongIds(): List<Long>
-
-    @Query("SELECT id FROM songs WHERE source_type = 6")
-    suspend fun getAllJellyfinSongIds(): List<Long>
-
-    @Transaction
-    suspend fun deleteSongsAndRelatedData(songIds: List<Long>) {
-        if (songIds.isEmpty()) return
-        songIds.chunked(CROSS_REF_BATCH_SIZE).forEach { chunk ->
-            deleteCrossRefsBySongIds(chunk)
-            deleteFavoritesBySongIds(chunk)
-            deleteLyricsBySongIds(chunk)
-            deleteSongsByIds(chunk)
-        }
-        deleteOrphanedAlbums()
-        deleteOrphanedArtists()
-        refreshAlbumSongCounts()
-        refreshArtistTrackCounts()
-    }
-
-    @Transaction
-    suspend fun clearAllNavidromeSongs() {
-        val navidromeSongIds = getAllNavidromeSongIds()
-        if (navidromeSongIds.isEmpty()) return
-        deleteSongsAndRelatedData(navidromeSongIds)
-    }
-
-    @Transaction
-    suspend fun clearAllJellyfinSongs() {
-        val jellyfinSongIds = getAllJellyfinSongIds()
-        if (jellyfinSongIds.isEmpty()) return
-        deleteSongsAndRelatedData(jellyfinSongIds)
-    }
-
     /**
      * Incrementally sync music data: upsert new/modified songs and remove deleted ones.
      * More efficient than clear-and-replace for large libraries with few changes.
@@ -482,9 +447,6 @@ interface MusicDao {
 
     @Query("SELECT COUNT(*) FROM songs")
     fun getSongCount(): Flow<Int>
-
-    @Query("SELECT COUNT(*) FROM songs WHERE source_type != 0")
-    fun getCloudSongCount(): Flow<Int>
 
     @Query("SELECT COUNT(*) FROM songs")
     suspend fun getSongCountOnce(): Int
