@@ -10,7 +10,7 @@
     <string name="setcat_m3u_sync_result">%1$d changed · %2$d conflicts · %3$d unresolved entries</string>
     <string name="settings_top_bar_title">Settings</string>
     <string name="settings_accounts_row_title">Accounts</string>
-    <string name="settings_accounts_row_subtitle">Manage Navidrome and Jellyfin services</string>
+    <string name="settings_accounts_row_subtitle">Manage Telegram and AI personalization</string>
 
     <string name="settings_search_hint">Search settings</string>
     <string name="settings_search_no_results">No results for \"%1$s\"</string>
@@ -300,7 +300,7 @@
     <string name="dialog_cannot_undo">This action cannot be undone.</string>
     <string name="confirm">Confirm</string>
     <string name="dialog_rebuild_database_title">Rebuild database?</string>
-    <string name="dialog_rebuild_database_message">This will rebuild local files from MediaStore and remove local imported lyrics, favorites, and custom metadata for those songs. Navidrome and Jellyfin songs are preserved. This action cannot be undone.</string>
+    <string name="dialog_rebuild_database_message">This rebuilds local MediaStore-backed songs and removes imported lyrics, favorites, and custom metadata for those songs. Telegram channel and message caches are preserved. This action cannot be undone.</string>
     <string name="rebuild">Rebuild</string>
     <string name="sync_indicator_rebuilding">Rebuilding database</string>
     <string name="toast_rebuilding_database">Rebuilding database…</string>
