@@ -3,10 +3,16 @@ package com.lostf1sh.pixelplayeross.presentation.selection
 import com.lostf1sh.pixelplayeross.data.model.StorageFilter
 
 /** Mirrors the filter used by the visible library when local media is globally hidden. */
+/**
+ * The unified library is intentionally local-only in the Telegram edition.
+ * Legacy source-filter preferences are ignored so upgraded installs cannot hide
+ * their device library or surface stale Navidrome/Jellyfin rows.
+ */
+@Suppress("UNUSED_PARAMETER")
 internal fun effectiveLibraryStorageFilter(
     selected: StorageFilter,
     hideLocalMedia: Boolean,
-): StorageFilter = if (hideLocalMedia) StorageFilter.ONLINE else selected
+): StorageFilter = StorageFilter.OFFLINE
 
 /** Toggles one item while preserving the order in which categories were selected. */
 internal fun <T, K> toggleOrderedSelection(
