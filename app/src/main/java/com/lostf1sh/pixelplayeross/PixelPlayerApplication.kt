@@ -191,7 +191,7 @@ class PixelPlayerApplication : Application(), ImageLoaderFactory, Configuration.
                 "navidrome_prefs_plain",
                 "jellyfin_prefs",
                 "jellyfin_prefs_plain",
-            ).forEach(::deleteSharedPreferences)
+            ).forEach { preferenceName -> deleteSharedPreferences(preferenceName) }
             migrationState.edit()
                 .putBoolean("credentials_removed_v1", true)
                 .apply()
