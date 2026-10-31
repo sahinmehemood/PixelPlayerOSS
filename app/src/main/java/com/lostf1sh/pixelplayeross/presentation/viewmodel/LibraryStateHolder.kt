@@ -101,21 +101,14 @@ class LibraryStateHolder @Inject constructor(
     private val _currentSongSortOption = MutableStateFlow<SortOption>(SortOption.SongDefaultOrder)
     val currentSongSortOption = _currentSongSortOption.asStateFlow()
 
-    private val _currentStorageFilter = MutableStateFlow(com.lostf1sh.pixelplayeross.data.model.StorageFilter.ALL)
+    // The product's library is local-device music only. Telegram media is browsed and
+    // streamed from its dedicated screen; legacy Navidrome/Jellyfin rows must not leak
+    // into local library queries after upgrading an older installation.
+    private val _currentStorageFilter = MutableStateFlow(com.lostf1sh.pixelplayeross.data.model.StorageFilter.OFFLINE)
     val currentStorageFilter = _currentStorageFilter.asStateFlow()
 
-    /**
-     * Effective storage filter that accounts for the "hide local media" preference.
-     * When hideLocalMedia is true, forces ONLINE filter (excludes source_type = 0).
-     */
-    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     private val effectiveStorageFilter: kotlinx.coroutines.flow.Flow<com.lostf1sh.pixelplayeross.data.model.StorageFilter> =
-        kotlinx.coroutines.flow.combine(
-            _currentStorageFilter,
-            userPreferencesRepository.hideLocalMediaFlow
-        ) { filter, hideLocal ->
-            if (hideLocal) com.lostf1sh.pixelplayeross.data.model.StorageFilter.ONLINE else filter
-        }
+        kotlinx.coroutines.flow.flowOf(com.lostf1sh.pixelplayeross.data.model.StorageFilter.OFFLINE)
 
     private fun effectiveFoldersStorageFilter(
         selectedFilter: com.lostf1sh.pixelplayeross.data.model.StorageFilter
@@ -226,7 +219,6 @@ class LibraryStateHolder @Inject constructor(
             val genreSortKey = userPreferencesRepository.genresSortOptionFlow.first()
             _currentGenreSortOption.value = SortOption.GENRES.find { it.storageKey == genreSortKey } ?: SortOption.GenreNameAZ
 
-            _currentStorageFilter.value = userPreferencesRepository.lastStorageFilterFlow.first()
         }
     }
 
@@ -580,10 +572,10 @@ class LibraryStateHolder @Inject constructor(
         }
     }
 
-    fun setStorageFilter(filter: com.lostf1sh.pixelplayeross.data.model.StorageFilter) {
-        _currentStorageFilter.value = filter
+    fun setStorageFilter(@Suppress("UNUSED_PARAMETER") filter: com.lostf1sh.pixelplayeross.data.model.StorageFilter) {
+        _currentStorageFilter.value = com.lostf1sh.pixelplayeross.data.model.StorageFilter.OFFLINE
         scope?.launch {
-            userPreferencesRepository.saveLastStorageFilter(filter)
+            userPreferencesRepository.saveLastStorageFilter(com.lostf1sh.pixelplayeross.data.model.StorageFilter.OFFLINE)
         }
     }
 
