@@ -1058,8 +1058,7 @@ class MusicService : MediaSessionService() {
             if (playbackState == Player.STATE_READY) {
                 consecutivePlaybackErrors = 0
             }
-                syncLocalListeningStatsFromPlayer(mediaSession?.player ?: engine.masterPlayer)
-            }
+            syncLocalListeningStatsFromPlayer(mediaSession?.player ?: engine.masterPlayer)
             mediaSession?.let { refreshMediaSessionUi(it) }
             schedulePlaybackSnapshotPersist(immediate = playbackState == Player.STATE_IDLE)
         }
