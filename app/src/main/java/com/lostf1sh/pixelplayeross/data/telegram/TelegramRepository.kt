@@ -136,7 +136,7 @@ class TelegramRepository @Inject constructor(
         val found = linkedMapOf<Long, TelegramTopicEntity>()
         var offsetDate = 0
         var offsetMessageId = 0L
-        var offsetMessageThreadId = 0L
+        var offsetForumTopicId = 0
         var page = 0
         var reachedEnd = false
 
@@ -147,7 +147,7 @@ class TelegramRepository @Inject constructor(
                     query = ""
                     this.offsetDate = offsetDate
                     this.offsetMessageId = offsetMessageId
-                    this.offsetMessageThreadId = offsetMessageThreadId
+                    this.offsetForumTopicId = offsetForumTopicId
                     limit = TOPIC_PAGE_SIZE
                 },
             )
@@ -159,7 +159,7 @@ class TelegramRepository @Inject constructor(
 
             response.topics.forEach { topic ->
                 val info = topic.info
-                val threadId = info.messageThreadId
+                val threadId = info.forumTopicId.toLong()
                 if (threadId > 0L) {
                     val previous = existing[threadId]
                     found[threadId] = TelegramTopicEntity(
@@ -177,12 +177,12 @@ class TelegramRepository @Inject constructor(
             val currentCursor = TelegramTopicPagination.Cursor(
                 date = offsetDate,
                 messageId = offsetMessageId,
-                messageThreadId = offsetMessageThreadId,
+                forumTopicId = offsetForumTopicId,
             )
             val nextCursor = TelegramTopicPagination.Cursor(
                 date = response.nextOffsetDate,
                 messageId = response.nextOffsetMessageId,
-                messageThreadId = response.nextOffsetMessageThreadId,
+                forumTopicId = response.nextOffsetForumTopicId,
             )
             if (nextCursor.isTerminal) {
                 reachedEnd = true
@@ -198,7 +198,7 @@ class TelegramRepository @Inject constructor(
 
             offsetDate = nextCursor.date
             offsetMessageId = nextCursor.messageId
-            offsetMessageThreadId = nextCursor.messageThreadId
+            offsetForumTopicId = nextCursor.forumTopicId
             page += 1
         }
 
@@ -451,7 +451,12 @@ class TelegramRepository @Inject constructor(
                         offset = 0
                         limit = SEARCH_PAGE_SIZE
                         this.filter = filter
-                        messageThreadId = threadId ?: 0L
+                        topicId = threadId?.let { topicId ->
+                            require(topicId in 1..Int.MAX_VALUE.toLong()) {
+                                "Telegram forum topic ID is outside the supported range."
+                            }
+                            TdApi.MessageTopicForum(topicId.toInt())
+                        }
                     }
                     val response = clientManager.sendRequest<TdApi.FoundChatMessages>(request)
                     if (response.messages.isEmpty()) {
@@ -603,7 +608,11 @@ class TelegramRepository @Inject constructor(
             mimeType = details.mimeType,
             dateAdded = message.date.toLong(),
             albumArtUri = null,
-            threadId = threadId ?: message.messageThreadId.takeIf { it > 0L },
+            threadId = threadId ?: when (val topic = message.topicId) {
+                is TdApi.MessageTopicForum -> topic.forumTopicId.toLong().takeIf { it > 0L }
+                is TdApi.MessageTopicThread -> topic.messageThreadId.takeIf { it > 0L }
+                else -> null
+            },
         )
     }
 
