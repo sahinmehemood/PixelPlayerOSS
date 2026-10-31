@@ -721,7 +721,7 @@ fun SongInfoBottomSheet(
                                                     supporting = songLocationInfo.value,
                                                     icon = if (songLocationInfo.isRemote) Icons.Rounded.Cloud else Icons.Rounded.AudioFile,
                                                     iconDescription = stringResource(
-                                                        if (songLocationInfo.isCloud) {
+                                                        if (songLocationInfo.isRemote) {
                                                             R.string.cd_provider_icon
                                                         } else {
                                                             R.string.cd_file_icon
