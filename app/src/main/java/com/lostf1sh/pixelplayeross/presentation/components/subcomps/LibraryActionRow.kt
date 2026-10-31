@@ -24,8 +24,6 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -48,10 +46,6 @@ import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.Shuffle
-import androidx.compose.material.icons.rounded.FilterList
-import androidx.compose.material.icons.rounded.Cloud
-import androidx.compose.material.icons.rounded.Dataset
-import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -60,13 +54,7 @@ import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MotionScheme
-import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Text
-import androidx.compose.material3.TooltipBox
-import androidx.compose.material3.TooltipDefaults
-import androidx.compose.material3.TooltipAnchorPosition
-import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -88,7 +76,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.lostf1sh.pixelplayeross.R
 import com.lostf1sh.pixelplayeross.data.model.MusicFolder
-import com.lostf1sh.pixelplayeross.data.model.StorageFilter
 import com.lostf1sh.pixelplayeross.ui.theme.RoundedSans
 import java.io.File
 import androidx.compose.ui.res.stringResource
@@ -106,11 +93,9 @@ private data class LibraryToolbarContent(
     val showImportButton: Boolean,
     val showSortButton: Boolean,
     val showLocateButton: Boolean,
-    val showStorageFilterButton: Boolean,
     val currentFolderPath: String?,
     val folderRootPath: String,
     val folderRootLabel: String,
-    val currentStorageFilter: StorageFilter,
     val iconRotation: Float
 ) {
     val mode: LibraryToolbarMode
@@ -140,9 +125,6 @@ fun LibraryActionRow(
     onFolderClick: (String) -> Unit,
     onNavigateBack: () -> Unit,
     isShuffleEnabled: Boolean = false,
-    showStorageFilterButton: Boolean = false,
-    currentStorageFilter: StorageFilter = StorageFilter.ALL,
-    onStorageFilterClick: () -> Unit = {}
 ) {
     // Animate complete arrangements so departing controls keep their tab's labels and width.
     AnimatedContent(
@@ -152,11 +134,9 @@ fun LibraryActionRow(
             showImportButton = showImportButton,
             showSortButton = showSortButton,
             showLocateButton = showLocateButton,
-            showStorageFilterButton = showStorageFilterButton,
             currentFolderPath = currentFolder?.path,
             folderRootPath = folderRootPath,
             folderRootLabel = folderRootLabel,
-            currentStorageFilter = currentStorageFilter,
             iconRotation = iconRotation
         ),
         contentKey = { it.mode },
@@ -179,7 +159,6 @@ fun LibraryActionRow(
             onImportM3uClick = onImportM3uClick,
             onFolderClick = onFolderClick,
             onNavigateBack = onNavigateBack,
-            onStorageFilterClick = onStorageFilterClick
         )
     }
 }
@@ -194,13 +173,10 @@ private fun LibraryActionRowContent(
     onImportM3uClick: () -> Unit,
     onFolderClick: (String) -> Unit,
     onNavigateBack: () -> Unit,
-    onStorageFilterClick: () -> Unit
 ) {
     val isPlaylistTab = content.isPlaylistTab
     val showSortButton = content.showSortButton
     val showLocateButton = content.showLocateButton
-    val showStorageFilterButton = content.showStorageFilterButton
-    val currentStorageFilter = content.currentStorageFilter
     val iconRotation = content.iconRotation
     val shouldShowImport = isPlaylistTab && content.showImportButton
 
@@ -357,28 +333,16 @@ private fun LibraryActionRowContent(
             val outerCorner = 26.dp
             
             val sortStartCorner by animateDpAsState(
-                targetValue = if (showLocateButton || showStorageFilterButton) 8.dp else outerCorner,
+                targetValue = if (showLocateButton) 8.dp else outerCorner,
                 label = "SortStartCorner"
             )
 
-            val filterEndCorner = 8.dp
-            val filterStartCorner by animateDpAsState(
-                targetValue = if (showLocateButton) 8.dp else outerCorner,
-                label = "FilterStartCorner"
-            )
-            
             val locateEndCorner = 8.dp
 
             val gapBetweenLocateAndNext by animateDpAsState(
                 targetValue = if (showLocateButton) 4.dp else 0.dp,
                 label = "GapLocate"
             )
-            val gapBetweenFilterAndSort by animateDpAsState(
-                targetValue = if (showStorageFilterButton) 4.dp else 0.dp,
-                label = "GapFilter"
-            )
-
-
             Row(verticalAlignment = Alignment.CenterVertically) {
                 AnimatedVisibility(
                     visible = showLocateButton,
@@ -404,109 +368,6 @@ private fun LibraryActionRowContent(
                 
                 Spacer(modifier = Modifier.width(gapBetweenLocateAndNext))
 
-                AnimatedVisibility(
-                    visible = showStorageFilterButton,
-                    enter = slideInHorizontally(initialOffsetX = { it / 2 }) + fadeIn(),
-                    exit = slideOutHorizontally(targetOffsetX = { it / 2 }) + fadeOut()
-                ) {
-                     val finalIcon = when(currentStorageFilter) {
-                         StorageFilter.ALL -> Icons.Rounded.Dataset
-                         StorageFilter.ONLINE -> Icons.Rounded.Cloud
-                         StorageFilter.OFFLINE -> Icons.Rounded.PhoneAndroid
-                     }
-                     val tooltipText = when(currentStorageFilter) {
-                         StorageFilter.ALL -> stringResource(R.string.library_storage_filter_all_songs)
-                         StorageFilter.ONLINE -> stringResource(R.string.library_storage_filter_online)
-                         StorageFilter.OFFLINE -> stringResource(R.string.library_storage_filter_offline)
-                     }
-                     val tooltipState = rememberTooltipState()
-
-                    TooltipBox(
-                        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
-                        tooltip = {
-                            PlainTooltip {
-                                Text(tooltipText)
-                            }
-                        },
-                        state = tooltipState
-                    ) {
-                        // The button squishes and rounds out while held, the icon spins in when
-                        // the source changes, and a source other than All keeps a tertiary tint.
-                        val filterMotion = remember { MotionScheme.expressive() }
-                        val filterInteraction = remember { MutableInteractionSource() }
-                        val filterPressed by filterInteraction.collectIsPressedAsState()
-                        val filterScale by animateFloatAsState(
-                            targetValue = if (filterPressed) 0.88f else 1f,
-                            animationSpec = filterMotion.fastSpatialSpec(),
-                            label = "StorageFilterScale"
-                        )
-                        val pressedCorner = genHeight / 2
-                        val filterStart by animateDpAsState(
-                            targetValue = if (filterPressed) pressedCorner else filterStartCorner,
-                            animationSpec = filterMotion.fastSpatialSpec(),
-                            label = "StorageFilterStartCorner"
-                        )
-                        val filterEnd by animateDpAsState(
-                            targetValue = if (filterPressed) pressedCorner else filterEndCorner,
-                            animationSpec = filterMotion.fastSpatialSpec(),
-                            label = "StorageFilterEndCorner"
-                        )
-                        val isFiltering = currentStorageFilter != StorageFilter.ALL
-                        val filterContainer by animateColorAsState(
-                            targetValue = if (isFiltering) MaterialTheme.colorScheme.tertiaryContainer
-                            else MaterialTheme.colorScheme.secondaryContainer,
-                            animationSpec = filterMotion.defaultEffectsSpec(),
-                            label = "StorageFilterContainer"
-                        )
-                        val filterContent by animateColorAsState(
-                            targetValue = if (isFiltering) MaterialTheme.colorScheme.onTertiaryContainer
-                            else MaterialTheme.colorScheme.onSecondaryContainer,
-                            animationSpec = filterMotion.defaultEffectsSpec(),
-                            label = "StorageFilterContent"
-                        )
-                        FilledTonalIconButton(
-                            onClick = onStorageFilterClick,
-                            shape = RoundedCornerShape(
-                                topStart = filterStart,
-                                bottomStart = filterStart,
-                                topEnd = filterEnd,
-                                bottomEnd = filterEnd
-                            ),
-                            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = filterContainer,
-                                contentColor = filterContent
-                            ),
-                            interactionSource = filterInteraction,
-                            modifier = Modifier
-                                .size(genHeight)
-                                .graphicsLayer {
-                                    scaleX = filterScale
-                                    scaleY = filterScale
-                                }
-                        ) {
-                            AnimatedContent(
-                                targetState = finalIcon,
-                                transitionSpec = {
-                                    (scaleIn(filterMotion.fastSpatialSpec(), initialScale = 0.4f) +
-                                        fadeIn(filterMotion.fastEffectsSpec())) togetherWith
-                                        (scaleOut(filterMotion.fastSpatialSpec(), targetScale = 0.4f) +
-                                            fadeOut(filterMotion.fastEffectsSpec()))
-                                },
-                                label = "StorageFilterIcon"
-                            ) { icon ->
-                                val spin = remember { Animatable(-90f) }
-                                LaunchedEffect(Unit) { spin.animateTo(0f, filterMotion.defaultSpatialSpec()) }
-                                Icon(
-                                    imageVector = icon,
-                                    contentDescription = tooltipText,
-                                    modifier = Modifier.graphicsLayer { rotationZ = spin.value }
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(gapBetweenFilterAndSort))
 
                 FilledTonalIconButton(
                     onClick = onSortClick,
