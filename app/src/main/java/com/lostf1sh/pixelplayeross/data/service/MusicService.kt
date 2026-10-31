@@ -1376,8 +1376,6 @@ class MusicService : MediaSessionService() {
             val mediaItem = mediaItemAt(index)
             val metadata = mediaItem.mediaMetadata
             val playerUri = mediaItem.localConfiguration?.uri?.toString()
-            val originalContentUri = metadata.extras
-                ?.getString(MediaItemBuilder.EXTERNAL_EXTRA_CONTENT_URI)
             // The queue snapshot stores the actual playable URI. Telegram queue items keep
             // stable telegram:// IDs and resolve their authenticated loopback URL at playback.
             val uri = playerUri
