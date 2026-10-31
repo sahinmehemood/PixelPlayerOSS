@@ -2856,7 +2856,6 @@ class PlayerViewModel @Inject constructor(
                 if (reason == Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED ||
                     reason == Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE) {
                     updateCurrentPlaybackQueueFromPlayer(mediaController)
-                    dualPlayerEngine.triggerAdjacentPreResolution()
                 }
             }
         }
