@@ -3019,7 +3019,6 @@ fun LibraryFoldersTab(
                 itemsToShow.isEmpty() && songsToShow.isEmpty() -> {
                     LibraryExpressiveEmptyState(
                         tabId = LibraryTabId.FOLDERS,
-                        storageFilter = StorageFilter.OFFLINE,
                         bottomBarHeight = bottomBarHeight
                     )
                 }
