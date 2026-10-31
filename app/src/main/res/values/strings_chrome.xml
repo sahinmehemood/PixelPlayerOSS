@@ -2,6 +2,7 @@
 <resources>
     <string name="setup_gate_preparing">Preparing setup…</string>
     <string name="song_info_label_provider">Provider</string>
+    <string name="telegram_music_source">Telegram</string>
     <string name="song_info_label_path">Path</string>
     <string name="cd_playlist_artwork">Playlist</string>
     <string name="home_your_mix_subtitle">Today\'s Mix for you</string>
