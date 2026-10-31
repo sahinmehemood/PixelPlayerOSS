@@ -19,6 +19,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         LyricsEntity::class,
         PlaylistEntity::class,
         PlaylistSongEntity::class,
+        // Legacy provider cache tables are retained in schema v7 for non-destructive upgrades only.
+        // They have no DAO, repository, worker, or UI in this Telegram-only product.
         NavidromeSongEntity::class,
         NavidromePlaylistEntity::class,
         JellyfinSongEntity::class,
