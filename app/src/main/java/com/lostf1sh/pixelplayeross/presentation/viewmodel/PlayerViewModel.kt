@@ -1132,15 +1132,6 @@ class PlayerViewModel @Inject constructor(
             initialValue = 0
         )
 
-    val hasCloudSongsFlow: StateFlow<Boolean?> = musicRepository.getCloudSongCountFlow()
-        .map<Int, Boolean?> { it > 0 }
-        .distinctUntilChanged()
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = null
-        )
-
     val albumsFlow: StateFlow<ImmutableList<Album>> = libraryStateHolder.albums
     val artistsFlow: StateFlow<ImmutableList<Artist>> = libraryStateHolder.artists
 
