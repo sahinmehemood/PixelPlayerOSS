@@ -277,15 +277,6 @@ import com.lostf1sh.pixelplayeross.presentation.components.rememberModalSheetSta
 val ListExtraBottomGap = 30.dp
 val PlayerSheetCollapsedCornerRadius = 32.dp
 private const val ENABLE_FOLDERS_SOURCE_TOGGLE = true
-private const val ENABLE_FOLDERS_STORAGE_FILTER = false
-
-/** Tabs whose header shows the quick source filter (all / cloud / on-device). */
-private fun LibraryTabId.hasStorageFilterButton(): Boolean = when (this) {
-    LibraryTabId.SONGS, LibraryTabId.ALBUMS, LibraryTabId.ARTISTS, LibraryTabId.LIKED -> true
-    LibraryTabId.FOLDERS -> ENABLE_FOLDERS_STORAGE_FILTER
-    LibraryTabId.PLAYLISTS, LibraryTabId.GENRES -> false
-}
-
 private const val FOLDER_NAVIGATION_ROOT_KEY = "__folder_root__"
 private const val FOLDER_NAVIGATION_FORWARD = 1
 private const val FOLDER_NAVIGATION_BACKWARD = -1
@@ -300,7 +291,6 @@ private data class LibraryScreenPlayerProjection(
     val folderSourceRootPath: String = "",
     val folderSource: FolderSource = FolderSource.INTERNAL,
     val isFoldersPlaylistView: Boolean = false,
-    val currentStorageFilter: StorageFilter = StorageFilter.ALL,
     val currentSongSortOption: SortOption = SortOption.SongTitleAZ,
     val currentAlbumSortOption: SortOption = SortOption.AlbumTitleAZ,
     val currentArtistSortOption: SortOption = SortOption.ArtistNameAZ,
@@ -314,7 +304,6 @@ private data class LibraryScreenPlayerProjection(
     val isLoadingLibraryCategories: Boolean = true,
     val isSyncingLibrary: Boolean = false,
     val isLoadingInitialSongs: Boolean = true,
-    val hideLocalMedia: Boolean = false
 )
 
 private fun PlayerUiState.toLibraryScreenProjection(): LibraryScreenPlayerProjection =
@@ -323,7 +312,6 @@ private fun PlayerUiState.toLibraryScreenProjection(): LibraryScreenPlayerProjec
         folderSourceRootPath = folderSourceRootPath,
         folderSource = folderSource,
         isFoldersPlaylistView = isFoldersPlaylistView,
-        currentStorageFilter = currentStorageFilter,
         currentSongSortOption = currentSongSortOption,
         currentAlbumSortOption = currentAlbumSortOption,
         currentArtistSortOption = currentArtistSortOption,
@@ -337,7 +325,6 @@ private fun PlayerUiState.toLibraryScreenProjection(): LibraryScreenPlayerProjec
         isLoadingLibraryCategories = isLoadingLibraryCategories,
         isSyncingLibrary = isSyncingLibrary,
         isLoadingInitialSongs = isLoadingInitialSongs,
-        hideLocalMedia = hideLocalMedia
     )
 
 @RequiresApi(Build.VERSION_CODES.R)
