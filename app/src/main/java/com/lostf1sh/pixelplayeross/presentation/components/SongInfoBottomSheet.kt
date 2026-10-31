@@ -426,11 +426,12 @@ fun SongInfoBottomSheet(
                                         contentPadding = PaddingValues(horizontal = 16.dp),
                                         verticalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
-                                        item {
-                                            Row(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .height(IntrinsicSize.Min),
+                                        if (!isTelegramSong) {
+                                            item {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .height(IntrinsicSize.Min),
                                                 verticalAlignment = Alignment.CenterVertically,
                                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
                                             ) {
@@ -566,7 +567,7 @@ fun SongInfoBottomSheet(
                                             ) {
                                                 FilledTonalButton(
                                                     modifier = Modifier
-                                                        .weight(if (isTelegramSong) 1f else 0.5f)
+                                                        .weight(0.5f)
                                                         .heightIn(min = 66.dp),
                                                     colors = ButtonDefaults.filledTonalButtonColors(
                                                         containerColor = MaterialTheme.colorScheme.secondaryContainer,
@@ -583,34 +584,32 @@ fun SongInfoBottomSheet(
                                                     Text(stringResource(R.string.shortcut_playlist_short))
                                                 }
 
-                                                if (!isTelegramSong) {
-                                                    FilledTonalButton(
-                                                        modifier = Modifier
-                                                            .weight(0.5f)
-                                                            .heightIn(min = 66.dp),
-                                                        colors = ButtonDefaults.filledTonalButtonColors(
-                                                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                                                            contentColor = MaterialTheme.colorScheme.onErrorContainer
-                                                        ),
-                                                        shape = CircleShape,
-                                                        onClick = {
-                                                            (context as? Activity)?.let { activity ->
-                                                                onDeleteFromDevice(activity, song) { result ->
-                                                                    if (result) {
-                                                                        removeFromListTrigger()
-                                                                        onDismiss()
-                                                                    }
+                                                FilledTonalButton(
+                                                    modifier = Modifier
+                                                        .weight(0.5f)
+                                                        .heightIn(min = 66.dp),
+                                                    colors = ButtonDefaults.filledTonalButtonColors(
+                                                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                                                        contentColor = MaterialTheme.colorScheme.onErrorContainer
+                                                    ),
+                                                    shape = CircleShape,
+                                                    onClick = {
+                                                        (context as? Activity)?.let { activity ->
+                                                            onDeleteFromDevice(activity, song) { result ->
+                                                                if (result) {
+                                                                    removeFromListTrigger()
+                                                                    onDismiss()
                                                                 }
                                                             }
                                                         }
-                                                    ) {
-                                                        Icon(
-                                                            Icons.Default.DeleteForever,
-                                                            contentDescription = stringResource(R.string.delete_action)
-                                                        )
-                                                        Spacer(Modifier.width(8.dp))
-                                                        Text(stringResource(R.string.delete_action))
                                                     }
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.DeleteForever,
+                                                        contentDescription = stringResource(R.string.delete_action)
+                                                    )
+                                                    Spacer(Modifier.width(8.dp))
+                                                    Text(stringResource(R.string.delete_action))
                                                 }
                                             }
                                         }
@@ -627,6 +626,7 @@ fun SongInfoBottomSheet(
                                             }
                                         }
 
+                                        if (!isTelegramSong) {
                                         item {
                                             FilledTonalButton(
                                                 modifier = Modifier
@@ -642,6 +642,7 @@ fun SongInfoBottomSheet(
                                                 Spacer(Modifier.width(10.dp))
                                                 Text(stringResource(R.string.musicbrainz_lookup))
                                             }
+                                        }
                                         }
 
                                         item {
