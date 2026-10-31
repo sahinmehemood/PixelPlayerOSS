@@ -148,7 +148,6 @@ import com.lostf1sh.pixelplayeross.data.model.Genre
 import com.lostf1sh.pixelplayeross.data.model.MusicFolder
 import com.lostf1sh.pixelplayeross.data.model.FolderSource
 import com.lostf1sh.pixelplayeross.data.model.Song
-import com.lostf1sh.pixelplayeross.data.offline.CloudOfflineRepository
 import com.lostf1sh.pixelplayeross.data.model.SortOption
 import com.lostf1sh.pixelplayeross.data.model.StorageFilter
 import com.lostf1sh.pixelplayeross.presentation.components.MiniPlayerHeight
@@ -176,7 +175,6 @@ import com.lostf1sh.pixelplayeross.presentation.components.subcomps.SelectionCou
 import com.lostf1sh.pixelplayeross.presentation.viewmodel.ColorSchemePair
 import com.lostf1sh.pixelplayeross.presentation.viewmodel.PlayerUiState
 import com.lostf1sh.pixelplayeross.presentation.viewmodel.PlayerViewModel
-import com.lostf1sh.pixelplayeross.presentation.viewmodel.CloudDownloadsViewModel
 import com.lostf1sh.pixelplayeross.presentation.viewmodel.sharedPlayerViewModel
 import com.lostf1sh.pixelplayeross.presentation.viewmodel.PlaylistUiState
 import com.lostf1sh.pixelplayeross.presentation.viewmodel.PlaylistViewModel
@@ -352,7 +350,6 @@ fun LibraryScreen(
     playlistViewModel: PlaylistViewModel = hiltViewModel(),
     libraryViewModel: LibraryViewModel = hiltViewModel(),
     songInfoBottomSheetViewModel: SongInfoBottomSheetViewModel = hiltViewModel(),
-    cloudDownloadsViewModel: CloudDownloadsViewModel = hiltViewModel(),
     smartMixViewModel: SmartMixViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -1239,9 +1236,7 @@ fun LibraryScreen(
                                     onFolderClick = { playerViewModel.navigateToFolder(it) },
                                     onNavigateBack = { playerViewModel.navigateBackFolder() },
                                     isShuffleEnabled = isShuffleEnabled,
-                                    showStorageFilterButton = visibleCurrentTabId.hasStorageFilterButton(),
-                                    currentStorageFilter = playerUiState.currentStorageFilter,
-                                    onStorageFilterClick = { playerViewModel.toggleStorageFilter() }
+                                    showStorageFilterButton = false
                                 )
                             }
                         }
@@ -1461,27 +1456,6 @@ fun LibraryScreen(
                                                 imageVector = Icons.Rounded.ViewModule
                                             )
                                         }
-                                    }
-                                    // Genres span every source, so "cloud only" would not change that tab.
-                                    if (!isFoldersTab && !isGenresTab) {
-                                        Spacer(modifier = Modifier.height(12.dp))
-                                        Text(
-                                            text = stringResource(R.string.presentation_batch_d_cloud_sources_heading),
-                                            style = MaterialTheme.typography.headlineSmall,
-                                            fontFamily = com.lostf1sh.pixelplayeross.ui.theme.RoundedSans,
-                                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                                            modifier = Modifier.padding(start = 2.dp, bottom = 8.dp)
-                                        )
-                                        com.lostf1sh.pixelplayeross.presentation.components.LibrarySheetToggleCard(
-                                            label = stringResource(R.string.presentation_batch_d_cloud_only),
-                                            checked = playerUiState.hideLocalMedia,
-                                            boxBackgroundColor = if (playerUiState.hideLocalMedia)
-                                                MaterialTheme.colorScheme.tertiary
-                                            else
-                                                MaterialTheme.colorScheme.surfaceContainerLow,
-                                            boxCornerRadius = if (playerUiState.hideLocalMedia) 18.dp else 50.dp,
-                                            onCheckedChange = { playerViewModel.setHideLocalMedia(it) }
-                                        )
                                     }
                                 }
                             )
@@ -1993,20 +1967,6 @@ fun LibraryScreen(
             onShareAll = {
                 playerViewModel.shareSelectedAsZip(selectedSongs)
                 clearResolvedCategorySelection()
-                showMultiSelectionSheet = false
-            },
-            onDownloadAll = {
-                val cloudSongCount = CloudOfflineRepository.downloadCandidates(selectedSongs).size
-                cloudDownloadsViewModel.downloadSelected(selectedSongs)
-                multiSelectionState.clearSelection()
-                clearResolvedCategorySelection()
-                playerViewModel.sendToast(
-                    context.resources.getQuantityString(
-                        R.plurals.cloud_download_selected_started,
-                        cloudSongCount,
-                        cloudSongCount
-                    )
-                )
                 showMultiSelectionSheet = false
             },
             onDeleteAll = { deleteActivity, onComplete ->
