@@ -557,6 +557,7 @@ fun SongInfoBottomSheet(
                                             }
                                         }
 
+                                        if (!isTelegramSong) {
                                         item {
                                             Row(
                                                 modifier = Modifier
@@ -614,6 +615,8 @@ fun SongInfoBottomSheet(
                                             }
                                         }
 
+                                        }
+
                                         if (!isTelegramSong) {
                                             item {
                                                 RingtoneActionButton(
@@ -627,22 +630,22 @@ fun SongInfoBottomSheet(
                                         }
 
                                         if (!isTelegramSong) {
-                                        item {
-                                            FilledTonalButton(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .heightIn(min = 66.dp),
-                                                shape = CircleShape,
-                                                onClick = { songInfoViewModel.searchMusicBrainz(song) }
-                                            ) {
-                                                Icon(
-                                                    Icons.Rounded.TravelExplore,
-                                                    contentDescription = stringResource(R.string.musicbrainz_lookup)
-                                                )
-                                                Spacer(Modifier.width(10.dp))
-                                                Text(stringResource(R.string.musicbrainz_lookup))
+                                            item {
+                                                FilledTonalButton(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .heightIn(min = 66.dp),
+                                                    shape = CircleShape,
+                                                    onClick = { songInfoViewModel.searchMusicBrainz(song) }
+                                                ) {
+                                                    Icon(
+                                                        Icons.Rounded.TravelExplore,
+                                                        contentDescription = stringResource(R.string.musicbrainz_lookup)
+                                                    )
+                                                    Spacer(Modifier.width(10.dp))
+                                                    Text(stringResource(R.string.musicbrainz_lookup))
+                                                }
                                             }
-                                        }
                                         }
 
                                         item {
