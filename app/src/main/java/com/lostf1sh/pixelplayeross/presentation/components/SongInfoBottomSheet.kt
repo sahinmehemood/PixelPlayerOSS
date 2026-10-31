@@ -865,7 +865,7 @@ fun SongInfoBottomSheet(
                 onDismissRequest = songInfoViewModel::dismissMusicBrainz,
                 confirmButton = {
                     TextButton(onClick = { songInfoViewModel.searchMusicBrainz(song) }) {
-                        Text(stringResource(R.string.cloud_download_retry))
+                        Text(stringResource(R.string.musicbrainz_retry))
                     }
                 },
                 dismissButton = {
