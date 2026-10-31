@@ -59,7 +59,6 @@ import com.lostf1sh.pixelplayeross.data.service.player.FadingPlayer
 import com.lostf1sh.pixelplayeross.data.service.player.MappingPlayer
 import com.lostf1sh.pixelplayeross.data.service.player.PreviousButtonPlayer
 import com.lostf1sh.pixelplayeross.data.service.player.TransitionController
-import com.lostf1sh.pixelplayeross.data.service.player.selectCanonicalCloudPlaybackUri
 import com.lostf1sh.pixelplayeross.ui.glancewidget.ControlWidget4x2
 import com.lostf1sh.pixelplayeross.ui.glancewidget.PixelPlayerGlanceWidget
 import com.lostf1sh.pixelplayeross.ui.glancewidget.PlayerActions
@@ -1379,9 +1378,9 @@ class MusicService : MediaSessionService() {
             val playerUri = mediaItem.localConfiguration?.uri?.toString()
             val originalContentUri = metadata.extras
                 ?.getString(MediaItemBuilder.EXTERNAL_EXTRA_CONTENT_URI)
-            // Persist the provider URI for cloud items. Proxy ports die with the process and an
-            // app-private offline file can be removed while this item remains in the queue.
-            val uri = selectCanonicalCloudPlaybackUri(playerUri, originalContentUri)
+            // The queue snapshot stores the actual playable URI. Telegram queue items keep
+            // stable telegram:// IDs and resolve their authenticated loopback URL at playback.
+            val uri = playerUri
             if (mediaItem.mediaId.isBlank() || uri.isNullOrBlank()) continue
 
             snapshotItems += PlaybackQueueItemSnapshot(
