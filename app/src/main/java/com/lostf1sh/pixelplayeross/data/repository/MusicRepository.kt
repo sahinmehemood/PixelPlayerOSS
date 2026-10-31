@@ -85,7 +85,6 @@ interface MusicRepository {
     /**
      * Returns the count of cloud songs in the library.
      */
-    fun getCloudSongCountFlow(): Flow<Int>
 
     /**
      * Returns a random selection of songs for efficient shuffle.
