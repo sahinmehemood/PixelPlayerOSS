@@ -558,62 +558,62 @@ fun SongInfoBottomSheet(
                                         }
 
                                         if (!isTelegramSong) {
-                                        item {
-                                            Row(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .height(IntrinsicSize.Min),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                            ) {
-                                                FilledTonalButton(
+                                            item {
+                                                Row(
                                                     modifier = Modifier
-                                                        .weight(0.5f)
-                                                        .heightIn(min = 66.dp),
-                                                    colors = ButtonDefaults.filledTonalButtonColors(
-                                                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                                    ),
-                                                    shape = CircleShape,
-                                                    onClick = onAddToPlayList
+                                                        .fillMaxWidth()
+                                                        .height(IntrinsicSize.Min),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                                                 ) {
-                                                    Icon(
-                                                        Icons.AutoMirrored.Rounded.PlaylistAdd,
-                                                        contentDescription = stringResource(R.string.cd_add_to_playlist)
-                                                    )
-                                                    Spacer(Modifier.width(8.dp))
-                                                    Text(stringResource(R.string.shortcut_playlist_short))
-                                                }
+                                                    FilledTonalButton(
+                                                        modifier = Modifier
+                                                            .weight(0.5f)
+                                                            .heightIn(min = 66.dp),
+                                                        colors = ButtonDefaults.filledTonalButtonColors(
+                                                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                                        ),
+                                                        shape = CircleShape,
+                                                        onClick = onAddToPlayList
+                                                    ) {
+                                                        Icon(
+                                                            Icons.AutoMirrored.Rounded.PlaylistAdd,
+                                                            contentDescription = stringResource(R.string.cd_add_to_playlist)
+                                                        )
+                                                        Spacer(Modifier.width(8.dp))
+                                                        Text(stringResource(R.string.shortcut_playlist_short))
+                                                    }
 
-                                                FilledTonalButton(
-                                                    modifier = Modifier
-                                                        .weight(0.5f)
-                                                        .heightIn(min = 66.dp),
-                                                    colors = ButtonDefaults.filledTonalButtonColors(
-                                                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                                                        contentColor = MaterialTheme.colorScheme.onErrorContainer
-                                                    ),
-                                                    shape = CircleShape,
-                                                    onClick = {
-                                                        (context as? Activity)?.let { activity ->
-                                                            onDeleteFromDevice(activity, song) { result ->
-                                                                if (result) {
-                                                                    removeFromListTrigger()
-                                                                    onDismiss()
+                                                    FilledTonalButton(
+                                                        modifier = Modifier
+                                                            .weight(0.5f)
+                                                            .heightIn(min = 66.dp),
+                                                        colors = ButtonDefaults.filledTonalButtonColors(
+                                                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                                                            contentColor = MaterialTheme.colorScheme.onErrorContainer
+                                                        ),
+                                                        shape = CircleShape,
+                                                        onClick = {
+                                                            (context as? Activity)?.let { activity ->
+                                                                onDeleteFromDevice(activity, song) { result ->
+                                                                    if (result) {
+                                                                        removeFromListTrigger()
+                                                                        onDismiss()
+                                                                    }
                                                                 }
                                                             }
                                                         }
+                                                    ) {
+                                                        Icon(
+                                                            Icons.Default.DeleteForever,
+                                                            contentDescription = stringResource(R.string.delete_action)
+                                                        )
+                                                        Spacer(Modifier.width(8.dp))
+                                                        Text(stringResource(R.string.delete_action))
                                                     }
-                                                ) {
-                                                    Icon(
-                                                        Icons.Default.DeleteForever,
-                                                        contentDescription = stringResource(R.string.delete_action)
-                                                    )
-                                                    Spacer(Modifier.width(8.dp))
-                                                    Text(stringResource(R.string.delete_action))
                                                 }
                                             }
-                                        }
 
                                         }
 
