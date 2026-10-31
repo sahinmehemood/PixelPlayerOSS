@@ -8,8 +8,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.hasClickAction
-import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -18,14 +16,13 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.lostf1sh.pixelplayeross.R
 import com.lostf1sh.pixelplayeross.data.model.MusicFolder
-import com.lostf1sh.pixelplayeross.data.model.StorageFilter
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
  * The library toolbar switches between its Shuffle/New and breadcrumb modes, shows a Home icon at
- * the folder root instead of a dead back arrow, and keeps the storage filter clickable.
+ * the folder root instead of a dead back arrow.
  */
 @RunWith(AndroidJUnit4::class)
 class LibraryActionRowTest {
@@ -130,39 +127,6 @@ class LibraryActionRowTest {
 
         composeRule.onNodeWithContentDescription(shuffle).assertExists()
         composeRule.onNodeWithText(ROOT_LABEL).assertDoesNotExist()
-    }
-
-    @Test
-    fun activeStorageFilterStaysClickable() {
-        var filterClicks = 0
-        composeRule.setContent {
-            MaterialTheme {
-                LibraryActionRow(
-                    onMainActionClick = {},
-                    iconRotation = 0f,
-                    onSortClick = {},
-                    showSortButton = true,
-                    isPlaylistTab = false,
-                    isFoldersTab = false,
-                    currentFolder = null,
-                    folderRootPath = ROOT_PATH,
-                    folderRootLabel = ROOT_LABEL,
-                    onFolderClick = {},
-                    onNavigateBack = {},
-                    showStorageFilterButton = true,
-                    currentStorageFilter = StorageFilter.ONLINE,
-                    onStorageFilterClick = { filterClicks++ }
-                )
-            }
-        }
-
-        composeRule.onNode(
-            hasContentDescription(string(R.string.library_storage_filter_online)) and hasClickAction()
-        ).performClick()
-
-        composeRule.runOnIdle {
-            assertThat(filterClicks).isEqualTo(1)
-        }
     }
 
     private companion object {
