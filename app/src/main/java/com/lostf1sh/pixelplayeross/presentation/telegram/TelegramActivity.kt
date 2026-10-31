@@ -405,7 +405,7 @@ private fun TelegramMusicScreen(
                             }
                             if (state.songs.isNotEmpty()) {
                                 IconButton(onClick = {
-                                    onPlay(state.songs, state.songs.first(), queueName)
+                                    onPlay(state.songs, state.songs.first(), selectedChannel.title)
                                 }) {
                                     Icon(Icons.Rounded.PlayArrow, contentDescription = "Play all")
                                 }
@@ -446,7 +446,7 @@ private fun TelegramMusicScreen(
                     items(state.songs, key = { it.id }) { song ->
                         Card(
                             modifier = Modifier.fillMaxWidth().clickable {
-                                onPlay(state.songs, song, queueName)
+                                onPlay(state.songs, song, selectedChannel.title)
                             },
                             shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
