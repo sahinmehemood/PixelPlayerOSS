@@ -145,7 +145,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.zIndex
 import com.lostf1sh.pixelplayeross.data.model.Genre
-import com.lostf1sh.pixelplayeross.data.offline.CloudOfflineRepository
 import com.lostf1sh.pixelplayeross.presentation.components.AlbumMultiSelectionOptionSheet
 import com.lostf1sh.pixelplayeross.presentation.components.EditMultipleSongsSheet
 import com.lostf1sh.pixelplayeross.presentation.components.GenreMultiSelectionOptionSheet
@@ -155,7 +154,6 @@ import com.lostf1sh.pixelplayeross.presentation.components.PlaylistMultiSelectio
 import com.lostf1sh.pixelplayeross.presentation.components.DeletePlaylistsConfirmationDialog
 import com.lostf1sh.pixelplayeross.presentation.components.subcomps.SelectionActionRow
 import com.lostf1sh.pixelplayeross.presentation.components.subcomps.SelectionCountPill
-import com.lostf1sh.pixelplayeross.presentation.viewmodel.CloudDownloadsViewModel
 import androidx.compose.runtime.State
 import androidx.compose.ui.unit.Dp
 
@@ -809,19 +807,6 @@ fun SearchScreen(
             },
             onShareAll = {
                 playerViewModel.shareSelectedAsZip(selectedSongs)
-                showMultiSelectionSheet = false
-            },
-            onDownloadAll = {
-                val cloudSongCount = CloudOfflineRepository.downloadCandidates(selectedSongs).size
-                cloudDownloadsViewModel.downloadSelected(selectedSongs)
-                multiSelectionState.clearSelection()
-                playerViewModel.sendToast(
-                    context.resources.getQuantityString(
-                        R.plurals.cloud_download_selected_started,
-                        cloudSongCount,
-                        cloudSongCount
-                    )
-                )
                 showMultiSelectionSheet = false
             },
             onDeleteAll = { deleteActivity, onComplete ->
