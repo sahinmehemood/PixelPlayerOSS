@@ -12,7 +12,6 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import androidx.work.WorkManager
-import com.lostf1sh.pixelplayeross.data.worker.CloudTrackDownloadWorker
 import com.lostf1sh.pixelplayeross.data.worker.JellyfinSyncWorker
 import com.lostf1sh.pixelplayeross.data.worker.NavidromeSyncWorker
 import coil.ImageLoader
@@ -179,7 +178,7 @@ class PixelPlayerApplication : Application(), ImageLoaderFactory, Configuration.
         val workManager = WorkManager.getInstance(this)
         workManager.cancelAllWorkByTag(NavidromeSyncWorker::class.java.name)
         workManager.cancelAllWorkByTag(JellyfinSyncWorker::class.java.name)
-        workManager.cancelAllWorkByTag(CloudTrackDownloadWorker.TAG)
+        workManager.cancelAllWorkByTag("cloud_track_download")
         workManager.cancelUniqueWork(NavidromeSyncWorker.WORK_NAME_ALL)
         workManager.cancelUniqueWork(JellyfinSyncWorker.WORK_NAME_ALL)
     }
