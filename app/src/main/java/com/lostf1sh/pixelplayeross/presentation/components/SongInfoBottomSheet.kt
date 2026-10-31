@@ -34,8 +34,6 @@ import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.AudioFile
 import androidx.compose.material.icons.rounded.Cloud
-import androidx.compose.material.icons.rounded.CloudDownload
-import androidx.compose.material.icons.rounded.CloudDone
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.MusicNote
@@ -74,8 +72,6 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.lostf1sh.pixelplayeross.R
 import com.lostf1sh.pixelplayeross.data.model.Song
-import com.lostf1sh.pixelplayeross.data.offline.CloudOfflineRepository
-import com.lostf1sh.pixelplayeross.data.offline.OfflineDownloadStatus
 import com.lostf1sh.pixelplayeross.presentation.components.subcomps.AutoSizingTextToFill
 import com.lostf1sh.pixelplayeross.utils.formatDuration
 import com.lostf1sh.pixelplayeross.utils.shapes.RoundedStarShape
@@ -138,9 +134,8 @@ fun SongInfoBottomSheet(
     var pendingTonePermissionTarget by remember { mutableStateOf<ToneTarget?>(null) }
     val audioMeta by songInfoViewModel.audioMeta.collectAsStateWithLifecycle()
     val resolvedArtists by songInfoViewModel.resolvedArtists.collectAsStateWithLifecycle()
-    val offlineDownload by songInfoViewModel.offlineDownload.collectAsStateWithLifecycle()
     val musicBrainzState by songInfoViewModel.musicBrainzState.collectAsStateWithLifecycle()
-    val isCloudSong = remember(song.contentUriString) { CloudOfflineRepository.isCloudSong(song) }
+    val isTelegramSong = remember(song.contentUriString) { songInfoViewModel.isTelegramSong(song) }
     val ringtonePermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) {
@@ -291,7 +286,6 @@ fun SongInfoBottomSheet(
     }
 
     LaunchedEffect(song.id) {
-        songInfoViewModel.bindSong(song)
         songInfoViewModel.loadAudioMeta(song)
         songInfoViewModel.loadArtistsForSong(song)
     }
@@ -572,7 +566,7 @@ fun SongInfoBottomSheet(
                                             ) {
                                                 FilledTonalButton(
                                                     modifier = Modifier
-                                                        .weight(0.5f)
+                                                        .weight(if (isTelegramSong) 1f else 0.5f)
                                                         .heightIn(min = 66.dp),
                                                     colors = ButtonDefaults.filledTonalButtonColors(
                                                         containerColor = MaterialTheme.colorScheme.secondaryContainer,
@@ -589,30 +583,17 @@ fun SongInfoBottomSheet(
                                                     Text(stringResource(R.string.shortcut_playlist_short))
                                                 }
 
-                                                FilledTonalButton(
-                                                    modifier = Modifier
-                                                        .weight(0.5f)
-                                                        .heightIn(min = 66.dp),
-                                                    colors = if (isCloudSong) {
-                                                        ButtonDefaults.filledTonalButtonColors(
-                                                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                                        )
-                                                    } else {
-                                                        ButtonDefaults.filledTonalButtonColors(
+                                                if (!isTelegramSong) {
+                                                    FilledTonalButton(
+                                                        modifier = Modifier
+                                                            .weight(0.5f)
+                                                            .heightIn(min = 66.dp),
+                                                        colors = ButtonDefaults.filledTonalButtonColors(
                                                             containerColor = MaterialTheme.colorScheme.errorContainer,
                                                             contentColor = MaterialTheme.colorScheme.onErrorContainer
-                                                        )
-                                                    },
-                                                    shape = CircleShape,
-                                                    onClick = {
-                                                        if (isCloudSong) {
-                                                            when (offlineDownload?.status) {
-                                                                OfflineDownloadStatus.FAILED ->
-                                                                    songInfoViewModel.retryOfflineDownload(song)
-                                                                else -> songInfoViewModel.toggleOfflineDownload(song)
-                                                            }
-                                                        } else {
+                                                        ),
+                                                        shape = CircleShape,
+                                                        onClick = {
                                                             (context as? Activity)?.let { activity ->
                                                                 onDeleteFromDevice(activity, song) { result ->
                                                                     if (result) {
@@ -622,40 +603,19 @@ fun SongInfoBottomSheet(
                                                                 }
                                                             }
                                                         }
-                                                    }
-                                                ) {
-                                                    Icon(
-                                                        when (offlineDownload?.status) {
-                                                            OfflineDownloadStatus.COMPLETE -> Icons.Rounded.CloudDone
-                                                            else -> if (isCloudSong) Icons.Rounded.CloudDownload else Icons.Default.DeleteForever
-                                                        },
-                                                        contentDescription = stringResource(
-                                                            if (isCloudSong) R.string.cloud_download_action else R.string.delete_action
+                                                    ) {
+                                                        Icon(
+                                                            Icons.Default.DeleteForever,
+                                                            contentDescription = stringResource(R.string.delete_action)
                                                         )
-                                                    )
-                                                    Spacer(Modifier.width(8.dp))
-                                                    Text(
-                                                        when (offlineDownload?.status) {
-                                                            OfflineDownloadStatus.QUEUED -> stringResource(R.string.cloud_download_queued)
-                                                            OfflineDownloadStatus.DOWNLOADING -> offlineDownload?.progress
-                                                                ?.let { stringResource(R.string.cloud_download_progress, (it * 100).toInt()) }
-                                                                ?: stringResource(R.string.cloud_downloading)
-                                                            OfflineDownloadStatus.COMPLETE -> stringResource(R.string.cloud_remove_download)
-                                                            OfflineDownloadStatus.FAILED -> stringResource(R.string.cloud_download_retry)
-                                                            null -> if (isCloudSong) {
-                                                                stringResource(R.string.cloud_download_action)
-                                                            } else {
-                                                                stringResource(R.string.delete_action)
-                                                            }
-                                                        },
-                                                        maxLines = 1,
-                                                        overflow = TextOverflow.Ellipsis
-                                                    )
+                                                        Spacer(Modifier.width(8.dp))
+                                                        Text(stringResource(R.string.delete_action))
+                                                    }
                                                 }
                                             }
                                         }
 
-                                        if (!isCloudSong) {
+                                        if (!isTelegramSong) {
                                             item {
                                                 RingtoneActionButton(
                                                     modifier = Modifier
@@ -759,7 +719,7 @@ fun SongInfoBottomSheet(
                                                 SongInfoSegmentedListItem(
                                                     headline = stringResource(songLocationInfo.labelRes),
                                                     supporting = songLocationInfo.value,
-                                                    icon = if (songLocationInfo.isCloud) Icons.Rounded.Cloud else Icons.Rounded.AudioFile,
+                                                    icon = if (songLocationInfo.isRemote) Icons.Rounded.Cloud else Icons.Rounded.AudioFile,
                                                     iconDescription = stringResource(
                                                         if (songLocationInfo.isCloud) {
                                                             R.string.cd_provider_icon
