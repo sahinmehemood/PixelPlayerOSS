@@ -24,7 +24,6 @@ import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
 import com.lostf1sh.pixelplayeross.data.model.Genre
 import com.lostf1sh.pixelplayeross.data.model.LibraryTabId
-import com.lostf1sh.pixelplayeross.data.model.StorageFilter
 import com.lostf1sh.pixelplayeross.presentation.components.MiniPlayerHeight
 import com.lostf1sh.pixelplayeross.presentation.screens.search.components.GenreCategoriesGrid
 import com.lostf1sh.pixelplayeross.presentation.viewmodel.LibraryGenresState
@@ -68,7 +67,6 @@ fun LibraryGenresTab(
 
         state.genres.isEmpty() -> LibraryExpressiveEmptyState(
             tabId = LibraryTabId.GENRES,
-            storageFilter = StorageFilter.ALL,
             bottomBarHeight = bottomBarHeight
         )
 
