@@ -14,6 +14,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import retrofit2.Response
@@ -50,28 +51,36 @@ class ListenBrainzRepository @Inject constructor(
         private const val MAX_QUEUE_SIZE = 3000
     }
 
-    private val prefs: SharedPreferences = createCredentialPrefs()
+    // Credential storage is optional at runtime: if the Android Keystore-backed store cannot
+    // be opened, the integration stays disconnected. Never downgrade tokens to plaintext.
+    private val prefs: SharedPreferences? = createCredentialPrefs()
 
     /** Serializes queue mutation against disconnect so consent revocation is a clean boundary. */
     private val queueMutex = Mutex()
 
     @Volatile
-    private var cachedToken: String? = prefs.getString(KEY_TOKEN, null)
+    private var cachedToken: String? = prefs?.getString(KEY_TOKEN, null)
 
     private val _accountState = MutableStateFlow(
         ListenBrainzAccountState(
             isConnected = cachedToken != null,
-            userName = prefs.getString(KEY_USER_NAME, null),
-            needsReauth = prefs.getBoolean(KEY_AUTH_INVALID, false),
-            serverUrl = prefs.getString(KEY_SERVER_URL, null)
+            userName = prefs?.getString(KEY_USER_NAME, null),
+            needsReauth = prefs?.getBoolean(KEY_AUTH_INVALID, false) ?: false,
+            serverUrl = prefs?.getString(KEY_SERVER_URL, null)
         )
     )
     val accountState: StateFlow<ListenBrainzAccountState> = _accountState.asStateFlow()
 
     init {
+        // Remove credentials written by older insecure fallback builds. A token must never
+        // survive in an unencrypted SharedPreferences file.
+        context.deleteSharedPreferences("${PREFS_NAME}_plain")
         endpoint.setCustom(
-            prefs.getString(KEY_SERVER_URL, null)?.let(ListenBrainzEndpoint::parseBaseUrl)
+            prefs?.getString(KEY_SERVER_URL, null)?.let(ListenBrainzEndpoint::parseBaseUrl)
         )
+        if (prefs == null) {
+            Timber.e("$TAG: encrypted credential storage unavailable; scrobbling disabled")
+        }
     }
 
     val pendingListenCount = listenBrainzDao.countFlow()
@@ -89,17 +98,13 @@ class ListenBrainzRepository @Inject constructor(
         )
     }
 
-    private fun createCredentialPrefs(): SharedPreferences = try {
+    private fun createCredentialPrefs(): SharedPreferences? = try {
         createEncryptedPrefs()
-    } catch (e: Exception) {
-        Timber.e(e, "$TAG: EncryptedSharedPreferences unreadable, deleting and recreating")
-        context.deleteSharedPreferences(PREFS_NAME)
-        try {
-            createEncryptedPrefs()
-        } catch (e2: Exception) {
-            Timber.e(e2, "$TAG: Encrypted prefs unavailable, falling back to plain")
-            context.getSharedPreferences("${PREFS_NAME}_plain", Context.MODE_PRIVATE)
-        }
+    } catch (error: Exception) {
+        // Do not delete/recreate the encrypted store and risk discarding the only protected
+        // copy of a token. Do not fall back to plaintext. The integration fails closed instead.
+        Timber.e(error, "$TAG: encrypted credential storage unavailable")
+        null
     }
 
     fun hasToken(): Boolean = cachedToken != null
@@ -134,6 +139,8 @@ class ListenBrainzRepository @Inject constructor(
      * server (self-hosted ListenBrainz, Maloja, …). Returns the user name on success.
      */
     suspend fun connect(token: String, serverUrl: String? = null): Result<String> {
+        val credentialPrefs = prefs
+            ?: return Result.failure(IllegalStateException("Secure credential storage is unavailable"))
         val trimmed = token.trim()
         if (trimmed.isEmpty()) return Result.failure(IllegalArgumentException("Empty token"))
 
@@ -155,7 +162,7 @@ class ListenBrainzRepository @Inject constructor(
                 // an empty name rather than treating the account as invalid.
                 val userName = body.userName.orEmpty()
                 val storedUrl = customBase?.toString()
-                prefs.edit {
+                credentialPrefs.edit {
                     putString(KEY_TOKEN, trimmed)
                     putString(KEY_USER_NAME, userName)
                     putBoolean(KEY_AUTH_INVALID, false)
@@ -179,6 +186,7 @@ class ListenBrainzRepository @Inject constructor(
                 Result.failure(IllegalStateException("Token rejected by ListenBrainz"))
             }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Timber.e(e, "$TAG: Token validation failed")
             endpoint.setCustom(previousBase)
             Result.failure(e)
@@ -188,7 +196,7 @@ class ListenBrainzRepository @Inject constructor(
     /** Clears the account and drops any queued listens — disconnecting revokes consent. */
     suspend fun disconnect() {
         queueMutex.withLock {
-            prefs.edit {
+            prefs?.edit {
                 remove(KEY_TOKEN)
                 remove(KEY_USER_NAME)
                 remove(KEY_AUTH_INVALID)
@@ -266,6 +274,7 @@ class ListenBrainzRepository @Inject constructor(
                 else -> ListenBrainzSubmitResult.TransientError()
             }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Timber.d(e, "$TAG: Submission failed, will retry")
             ListenBrainzSubmitResult.TransientError()
         }
@@ -277,7 +286,7 @@ class ListenBrainzRepository @Inject constructor(
     }
 
     private fun markAuthInvalid() {
-        prefs.edit { putBoolean(KEY_AUTH_INVALID, true) }
+        prefs?.edit { putBoolean(KEY_AUTH_INVALID, true) }
         _accountState.value = _accountState.value.copy(needsReauth = true)
     }
 
