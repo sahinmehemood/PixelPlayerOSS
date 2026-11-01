@@ -97,14 +97,34 @@ class SharedArtworkContentProviderTest {
     @Test
     fun publishedSessionArtwork_keepsOnlyRecentTracks() {
         SharedArtworkContentProvider.clearPublishedSessionArtwork()
-        val covers = (1..4).map { index ->
-            SharedArtworkContentProvider.buildCloudUriString(PACKAGE, "navidrome_cover://al-$index")!!
+        val covers = (1L..4L).map { songId ->
+            SharedArtworkContentProvider.buildSongUriString(PACKAGE, songId)
         }
         covers.forEach { SharedArtworkContentProvider.publishSessionArtwork(PACKAGE, it) }
 
         assertThat(SharedArtworkContentProvider.isPublishedSessionArtwork(covers.first(), PACKAGE)).isFalse()
         assertThat(covers.drop(1).all { SharedArtworkContentProvider.isPublishedSessionArtwork(it, PACKAGE) })
             .isTrue()
+    }
+
+    @Test
+    fun publishedSessionArtwork_ignoresNonLocalArtworkUris() {
+        SharedArtworkContentProvider.clearPublishedSessionArtwork()
+        SharedArtworkContentProvider.publishSessionArtwork(PACKAGE, "telegram://-100123/456")
+        SharedArtworkContentProvider.publishSessionArtwork(PACKAGE, "https://example.com/cover.jpg")
+
+        assertThat(
+            SharedArtworkContentProvider.isPublishedSessionArtwork(
+                "telegram://-100123/456",
+                PACKAGE,
+            ),
+        ).isFalse()
+        assertThat(
+            SharedArtworkContentProvider.isPublishedSessionArtwork(
+                "https://example.com/cover.jpg",
+                PACKAGE,
+            ),
+        ).isFalse()
     }
 
     @Test
@@ -147,50 +167,6 @@ class SharedArtworkContentProviderTest {
         )
 
         assertThat(songId).isEqualTo(42L)
-    }
-
-    @Test
-    fun cloudArtworkUri_roundTripsNavidromeArtwork() {
-        val rawArtworkUri = "navidrome_cover://album-42"
-        val sharedUri = SharedArtworkContentProvider.buildCloudUriString(
-            packageName = "com.lostf1sh.pixelplayeross",
-            rawArtworkUri = rawArtworkUri,
-        )
-
-        assertThat(sharedUri).isNotNull()
-        assertThat(
-            SharedArtworkContentProvider.parseCloudArtworkUri(
-                uriString = sharedUri!!,
-                packageName = "com.lostf1sh.pixelplayeross",
-            )
-        ).isEqualTo(rawArtworkUri)
-    }
-
-    @Test
-    fun cloudArtworkUri_roundTripsJellyfinArtwork() {
-        val rawArtworkUri = "jellyfin_cover://item-84"
-        val sharedUri = SharedArtworkContentProvider.buildCloudUriString(
-            packageName = "com.lostf1sh.pixelplayeross",
-            rawArtworkUri = rawArtworkUri,
-        )
-
-        assertThat(sharedUri).isNotNull()
-        assertThat(
-            SharedArtworkContentProvider.parseCloudArtworkUri(
-                uriString = sharedUri!!,
-                packageName = "com.lostf1sh.pixelplayeross",
-            )
-        ).isEqualTo(rawArtworkUri)
-    }
-
-    @Test
-    fun cloudArtworkUri_rejectsUnsupportedRemoteArtwork() {
-        val sharedUri = SharedArtworkContentProvider.buildCloudUriString(
-            packageName = "com.lostf1sh.pixelplayeross",
-            rawArtworkUri = "https://example.com/cover.jpg",
-        )
-
-        assertThat(sharedUri).isNull()
     }
 
     private companion object {
