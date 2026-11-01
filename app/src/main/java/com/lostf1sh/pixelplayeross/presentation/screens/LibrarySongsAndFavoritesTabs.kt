@@ -56,7 +56,6 @@ import com.lostf1sh.pixelplayeross.R
 import com.lostf1sh.pixelplayeross.data.model.LibraryTabId
 import com.lostf1sh.pixelplayeross.data.model.Song
 import com.lostf1sh.pixelplayeross.data.model.SortOption
-import com.lostf1sh.pixelplayeross.data.model.StorageFilter
 import com.lostf1sh.pixelplayeross.presentation.components.ExpressiveScrollBar
 import com.lostf1sh.pixelplayeross.presentation.components.animatedScrollbarInset
 import com.lostf1sh.pixelplayeross.ui.theme.LocalShowScrollbar
@@ -93,7 +92,6 @@ fun LibraryFavoritesTab(
     sortOption: SortOption,
     onLocateCurrentSongVisibilityChanged: (Boolean) -> Unit = {},
     onRegisterLocateCurrentSongAction: ((() -> Unit)?) -> Unit = {},
-    storageFilter: StorageFilter = StorageFilter.ALL,
     hasCurrentSong: Boolean = false
 ) {
     val listState = rememberRestoredLazyListState(favoriteSongs)
@@ -208,7 +206,6 @@ fun LibraryFavoritesTab(
     if (favoriteSongs.itemCount == 0 && favoriteSongs.loadState.refresh !is LoadState.Loading) {
         LibraryExpressiveEmptyState(
             tabId = LibraryTabId.LIKED,
-            storageFilter = storageFilter,
             bottomBarHeight = bottomBarHeight
         )
     } else {
