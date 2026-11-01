@@ -29,12 +29,22 @@ class AppReleaseSource @Inject constructor(
 
     /** Newest release of [channel], or null when the channel has nothing installable for this device. */
     suspend fun latest(channel: UpdateChannel): AppRelease? = withContext(Dispatchers.IO) {
+        // New PixelPlay has not published its own public release channel yet. Do not query or
+        // offer PixelPlayerOSS/F-Droid releases from the upstream project under this app identity.
         when (channel) {
-            UpdateChannel.STABLE -> parseFdroidPackage(getJson("$FDROID_API/$PUBLISHED_PACKAGE"), PUBLISHED_PACKAGE)
-            UpdateChannel.ALPHA -> parseLatestAlpha(
-                JSONArray(getBody(GITHUB_RELEASES_API)),
-                supportedAbis = Build.SUPPORTED_ABIS.toList()
-            )
+            UpdateChannel.STABLE -> if (STABLE_RELEASES_PUBLISHED) {
+                parseFdroidPackage(getJson("$FDROID_API/$PUBLISHED_PACKAGE"), PUBLISHED_PACKAGE)
+            } else {
+                null
+            }
+            UpdateChannel.ALPHA -> if (ALPHA_RELEASES_PUBLISHED) {
+                parseLatestAlpha(
+                    JSONArray(getBody(GITHUB_RELEASES_API)),
+                    supportedAbis = Build.SUPPORTED_ABIS.toList()
+                )
+            } else {
+                null
+            }
         }
     }
 
@@ -49,14 +59,18 @@ class AppReleaseSource @Inject constructor(
     }
 
     companion object {
-        private const val PROJECT_URL = "https://github.com/PixelPlayerHQ/PixelPlayerOSS"
+        private const val PROJECT_URL = "https://github.com/sahinmehemood/New-pixelplay"
 
-        /** Release applicationId; debug builds add a suffix but should still see real releases. */
+        // These remain false until New PixelPlay publishes and signs its own releases.
+        private const val STABLE_RELEASES_PUBLISHED = false
+        private const val ALPHA_RELEASES_PUBLISHED = false
+
+        /** Application ID retained from the imported Android project. */
         internal const val PUBLISHED_PACKAGE = "com.lostf1sh.pixelplayeross"
         private const val FDROID_API = "https://f-droid.org/api/v1/packages"
         private const val FDROID_REPO = "https://f-droid.org/repo"
         private const val GITHUB_RELEASES_API =
-            "https://api.github.com/repos/PixelPlayerHQ/PixelPlayerOSS/releases?per_page=30"
+            "https://api.github.com/repos/sahinmehemood/New-pixelplay/releases?per_page=30"
 
         fun fdroidPageUrl(packageName: String) = "https://f-droid.org/packages/$packageName/"
 
