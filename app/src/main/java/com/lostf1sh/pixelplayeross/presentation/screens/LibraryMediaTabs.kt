@@ -55,7 +55,6 @@ import com.lostf1sh.pixelplayeross.data.model.Artist
 import com.lostf1sh.pixelplayeross.data.model.LibraryTabId
 import com.lostf1sh.pixelplayeross.data.model.Song
 import com.lostf1sh.pixelplayeross.data.model.SortOption
-import com.lostf1sh.pixelplayeross.data.model.StorageFilter
 import com.lostf1sh.pixelplayeross.presentation.components.ExpressiveScrollBar
 import com.lostf1sh.pixelplayeross.presentation.components.animatedScrollbarInset
 import com.lostf1sh.pixelplayeross.ui.theme.LocalShowScrollbar
@@ -102,7 +101,7 @@ fun LibraryAlbumsTab(
     onAlbumLongPress: (Album) -> Unit = {},
     onAlbumSelectionToggle: (Album) -> Unit = {},
     getSelectionIndex: (Long) -> Int? = { null },
-    storageFilter: StorageFilter = StorageFilter.ALL
+
 ) {
     val gridState = rememberRestoredLazyGridState(albums)
     val listState = rememberRestoredLazyListState(albums)
@@ -277,7 +276,6 @@ fun LibraryAlbumsTab(
         albums.itemCount == 0 && refreshState is LoadState.NotLoading -> {
             LibraryExpressiveEmptyState(
                 tabId = LibraryTabId.ALBUMS,
-                storageFilter = storageFilter,
                 bottomBarHeight = bottomBarHeight
             )
         }
@@ -472,7 +470,7 @@ fun LibraryArtistsTab(
     onArtistLongPress: (Artist) -> Unit = {},
     onArtistSelectionToggle: (Artist) -> Unit = {},
     getSelectionIndex: (Long) -> Int? = { null },
-    storageFilter: StorageFilter = StorageFilter.ALL
+
 ) {
     val listState = rememberRestoredLazyListState(artists)
     val dummyListState = rememberLazyListState()
@@ -541,7 +539,6 @@ fun LibraryArtistsTab(
         artists.itemCount == 0 && refreshState is LoadState.NotLoading -> {
             LibraryExpressiveEmptyState(
                 tabId = LibraryTabId.ARTISTS,
-                storageFilter = storageFilter,
                 bottomBarHeight = bottomBarHeight
             )
         }
