@@ -67,13 +67,8 @@ object MediaItemBuilder {
         "audio/x-alac",
         "audio/x-aiff",
     )
-    private val CLOUD_ARTWORK_SCHEMES = setOf(
-        "navidrome_cover",
-        "jellyfin_cover",
-    )
     private val SUPPORTED_INTERNAL_ARTWORK_SCHEMES = setOf(
         LocalArtworkUri.SCHEME,
-        *CLOUD_ARTWORK_SCHEMES.toTypedArray(),
         "content",
         "file",
         "android.resource",
@@ -274,17 +269,6 @@ object MediaItemBuilder {
                 context = context.applicationContext,
                 songId = songId,
                 cacheBustToken = LocalArtworkUri.extractCacheBustToken(rawArtworkUri)
-            )
-        }
-
-        val internalArtworkUri = normalizeArtworkUri(
-            rawArtworkUri,
-            CLOUD_ARTWORK_SCHEMES
-        )
-        if (internalArtworkUri != null) {
-            return SharedArtworkContentProvider.buildCloudUri(
-                context = context.applicationContext,
-                rawArtworkUri = internalArtworkUri.toString()
             )
         }
 
