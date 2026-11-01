@@ -74,10 +74,11 @@ class PlaylistsModuleHandler @Inject constructor(
 
         val playlists = allPlaylists.filter { isBackedUpPlaylistSource(it.source) }
 
-        val cloudSongIds = buildCloudSongIdSet()
-
+        // Cloud-provider playlists are no longer part of the product. Exports retain only
+        // song IDs still present in the local MediaStore-backed library.
+        val localSongIds = musicDao.getAllMediaStoreSongIds().mapTo(HashSet()) { it.toString() }
         val filteredPlaylists = playlists.map { playlist ->
-            playlist.copy(songIds = playlist.songIds.filter { id -> id !in cloudSongIds })
+            playlist.copy(songIds = playlist.songIds.filter(localSongIds::contains))
         }
         val songMetadata = songResolver.metadataFor(filteredPlaylists.flatMap { it.songIds })
 
@@ -468,13 +469,6 @@ class PlaylistsModuleHandler @Inject constructor(
     ) {
         val unresolvedSongIds: Set<String>
             get() = resolvedSongIds.filterValues { it == null }.keys
-    }
-
-    private suspend fun buildCloudSongIdSet(): Set<String> {
-        val cloudIds = mutableSetOf<String>()
-        musicDao.getAllNavidromeSongIds().mapTo(cloudIds) { it.toString() }
-        musicDao.getAllJellyfinSongIds().mapTo(cloudIds) { it.toString() }
-        return cloudIds
     }
 
     private suspend fun restoreLegacyPreferenceEntries(payload: String) {
