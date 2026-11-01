@@ -4,9 +4,6 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.lostf1sh.pixelplayeross.data.jellyfin.model.JellyfinSong
-import com.lostf1sh.pixelplayeross.data.model.Song
-import com.lostf1sh.pixelplayeross.data.stream.CloudMusicUtils
 
 @Entity(
     tableName = "jellyfin_songs",
@@ -36,50 +33,3 @@ data class JellyfinSongEntity(
     val path: String,
     @ColumnInfo(name = "date_added") val dateAdded: Long
 )
-
-fun JellyfinSongEntity.toSong(): Song {
-    return Song(
-        id = "jellyfin_$id",
-        title = title,
-        artist = artist,
-        artistId = -1L,
-        album = album,
-        albumId = -1L,
-        path = path,
-        contentUriString = "jellyfin://$jellyfinId",
-        albumArtUriString = "jellyfin_cover://$jellyfinId",
-        duration = duration,
-        genre = genre,
-        mimeType = mimeType,
-        bitrate = bitRate?.let { it * 1000 },
-        sampleRate = null,
-        year = year,
-        trackNumber = trackNumber,
-        discNumber = CloudMusicUtils.normalizeDiscNumber(discNumber),
-        dateAdded = dateAdded,
-        isFavorite = false
-    )
-}
-
-fun JellyfinSong.toEntity(playlistId: String): JellyfinSongEntity {
-    return JellyfinSongEntity(
-        id = "${playlistId}_$id",
-        jellyfinId = id,
-        playlistId = playlistId,
-        title = title,
-        artist = artist,
-        artistId = artistId,
-        albumArtist = albumArtist,
-        album = album,
-        albumId = albumId,
-        duration = duration,
-        trackNumber = trackNumber,
-        discNumber = discNumber,
-        year = year,
-        genre = genre,
-        bitRate = bitRate,
-        mimeType = resolvedMimeType,
-        path = path,
-        dateAdded = System.currentTimeMillis()
-    )
-}
