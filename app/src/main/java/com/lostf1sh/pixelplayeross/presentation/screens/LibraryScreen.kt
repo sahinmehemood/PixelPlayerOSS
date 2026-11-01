@@ -149,7 +149,6 @@ import com.lostf1sh.pixelplayeross.data.model.MusicFolder
 import com.lostf1sh.pixelplayeross.data.model.FolderSource
 import com.lostf1sh.pixelplayeross.data.model.Song
 import com.lostf1sh.pixelplayeross.data.model.SortOption
-import com.lostf1sh.pixelplayeross.data.model.StorageFilter
 import com.lostf1sh.pixelplayeross.presentation.components.MiniPlayerHeight
 import com.lostf1sh.pixelplayeross.presentation.components.SmartImage
 import com.lostf1sh.pixelplayeross.presentation.components.resolveMainScreenBottomGradientHeight
@@ -1489,7 +1488,6 @@ fun LibraryScreen(
                                             onLocateCurrentSongVisibilityChanged = { songsShowLocateButton = it },
                                             onRegisterLocateCurrentSongAction = { songsLocateAction = it },
                                             sortOption = playerUiState.currentSongSortOption,
-                                            storageFilter = playerUiState.currentStorageFilter,
                                             hasCurrentSong = hasCurrentSong
                                         )
                                     }
@@ -1520,7 +1518,6 @@ fun LibraryScreen(
                                             onAlbumLongPress = onAlbumLongPress,
                                             onAlbumSelectionToggle = onAlbumSelectionToggle,
                                             getSelectionIndex = getAlbumSelectionIndex,
-                                            storageFilter = playerUiState.currentStorageFilter
                                         )
                                     }
 
@@ -1547,7 +1544,6 @@ fun LibraryScreen(
                                             onArtistLongPress = onArtistLongPress,
                                             onArtistSelectionToggle = onArtistSelectionToggle,
                                             getSelectionIndex = getArtistSelectionIndex,
-                                            storageFilter = playerUiState.currentStorageFilter
                                         )
                                     }
 
@@ -1591,7 +1587,6 @@ fun LibraryScreen(
                                             sortOption = playerUiState.currentFavoriteSortOption,
                                             onLocateCurrentSongVisibilityChanged = { likedShowLocateButton = it },
                                             onRegisterLocateCurrentSongAction = { likedLocateAction = it },
-                                            storageFilter = playerUiState.currentStorageFilter,
                                             hasCurrentSong = hasCurrentSong
                                         )
                                     }
