@@ -269,6 +269,25 @@ interface MusicDao {
     suspend fun refreshAlbumSongCounts()
 
     /**
+     * Removes deleted local-media rows and all dependent data in one transaction.
+     * Used by the MediaStore sync worker; it is provider-agnostic.
+     */
+    @Transaction
+    suspend fun deleteSongsAndRelatedData(songIds: List<Long>) {
+        if (songIds.isEmpty()) return
+        songIds.chunked(CROSS_REF_BATCH_SIZE).forEach { chunk ->
+            deleteCrossRefsBySongIds(chunk)
+            deleteFavoritesBySongIds(chunk)
+            deleteLyricsBySongIds(chunk)
+            deleteSongsByIds(chunk)
+        }
+        deleteOrphanedAlbums()
+        deleteOrphanedArtists()
+        refreshAlbumSongCounts()
+        refreshArtistTrackCounts()
+    }
+
+    /**
      * Incrementally sync music data: upsert new/modified songs and remove deleted ones.
      * More efficient than clear-and-replace for large libraries with few changes.
      */
