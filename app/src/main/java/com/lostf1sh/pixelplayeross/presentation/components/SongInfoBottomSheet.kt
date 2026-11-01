@@ -507,6 +507,7 @@ fun SongInfoBottomSheet(
                                                     )
                                                 }
                                             }
+                                            }
                                         }
                                         item {
                                             Row(
@@ -964,7 +965,6 @@ fun SongInfoBottomSheet(
                 setCurrentSongAsTone(target)
             }
         )
-    }
 }
 }
 
