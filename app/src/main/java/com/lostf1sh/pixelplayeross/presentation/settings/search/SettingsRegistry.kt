@@ -327,7 +327,7 @@ object SettingsRegistry {
                 type = SettingType.NAVIGABLE_CARD,
                 keywordsStatic = listOf(
                     "accounts", "telegram", "music channels", "private invite", "streaming",
-                    "AI personalization", "smart mix", "API key", "login"
+                    "ai personalization", "smart mix", "api key", "login"
                 )
             ),
 
