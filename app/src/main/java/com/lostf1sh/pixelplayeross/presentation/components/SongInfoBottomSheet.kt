@@ -966,6 +966,7 @@ fun SongInfoBottomSheet(
         )
     }
 }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
