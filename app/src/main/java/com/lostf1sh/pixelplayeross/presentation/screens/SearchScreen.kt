@@ -173,7 +173,6 @@ fun SearchScreen(
     playlistViewModel: PlaylistViewModel = hiltViewModel(),
     navController: NavHostController,
     onSearchBarActiveChange: (Boolean) -> Unit = {},
-    cloudDownloadsViewModel: CloudDownloadsViewModel = hiltViewModel()
 ) {
     val searchScreenEnteredAt = remember { android.os.SystemClock.elapsedRealtime() }
     var searchQuery by rememberSaveable { mutableStateOf(playerViewModel.searchQuery) }
