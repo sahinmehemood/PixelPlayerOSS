@@ -4,9 +4,6 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.lostf1sh.pixelplayeross.data.model.Song
-import com.lostf1sh.pixelplayeross.data.navidrome.model.NavidromeSong
-import com.lostf1sh.pixelplayeross.data.stream.CloudMusicUtils
 
 /**
  * Represents a song cached from a Navidrome/Subsonic server.
@@ -62,62 +59,3 @@ data class NavidromeSongEntity(
     val path: String,
     @ColumnInfo(name = "date_added") val dateAdded: Long
 )
-
-/**
- * Convert a [NavidromeSongEntity] to the app's [Song] data model.
- */
-fun NavidromeSongEntity.toSong(): Song {
-    return Song(
-        id = "navidrome_$id",
-        title = title,
-        artist = artist,
-        artistId = -1L,
-        album = album,
-        albumId = -1L,
-        path = path,
-        contentUriString = "navidrome://$navidromeId",
-        albumArtUriString = coverArtId?.let { "navidrome_cover://$it" },
-        duration = duration,
-        genre = genre,
-        mimeType = mimeType,
-        bitrate = bitRate?.let { it * 1000 },
-        sampleRate = null,
-        year = year,
-        trackNumber = trackNumber,
-        discNumber = CloudMusicUtils.normalizeDiscNumber(discNumber),
-        dateAdded = dateAdded,
-        isFavorite = false,
-        navidromeId = navidromeId
-    )
-}
-
-/**
- * Convert a [NavidromeSong] to a [NavidromeSongEntity] for database storage.
- */
-fun NavidromeSong.toEntity(
-    playlistId: String,
-    nowMs: Long = System.currentTimeMillis()
-): NavidromeSongEntity {
-    return NavidromeSongEntity(
-        id = "${playlistId}_$id",
-        navidromeId = id,
-        playlistId = playlistId,
-        title = title,
-        artist = artist,
-        artistId = artistId,
-        albumArtist = albumArtist,
-        album = album,
-        albumId = albumId,
-        coverArtId = coverArt,
-        duration = duration,
-        trackNumber = trackNumber,
-        discNumber = discNumber,
-        year = year,
-        genre = genre,
-        bitRate = bitRate,
-        mimeType = resolvedMimeType,
-        suffix = suffix,
-        path = path,
-        dateAdded = dateAddedOr(nowMs)
-    )
-}
