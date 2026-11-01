@@ -41,7 +41,6 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.media3.common.util.UnstableApi
 import com.lostf1sh.pixelplayeross.data.model.LibraryTabId
 import com.lostf1sh.pixelplayeross.data.model.Song
-import com.lostf1sh.pixelplayeross.data.model.StorageFilter
 import com.lostf1sh.pixelplayeross.data.model.SortOption
 import com.lostf1sh.pixelplayeross.presentation.components.MiniPlayerHeight
 import com.lostf1sh.pixelplayeross.presentation.selection.dragToSelect
@@ -84,7 +83,6 @@ fun LibrarySongsTab(
     onSongDragSelectionChange: (select: List<Song>, deselect: List<Song>) -> Unit = { _, _ -> },
     onLocateCurrentSongVisibilityChanged: (Boolean) -> Unit = {},
     onRegisterLocateCurrentSongAction: ((() -> Unit)?) -> Unit = {},
-    storageFilter: StorageFilter = StorageFilter.ALL,
     hasCurrentSong: Boolean = false
 ) {
     val listState = rememberRestoredLazyListState(songs)
@@ -249,7 +247,6 @@ fun LibrarySongsTab(
         songs.itemCount == 0 && refreshState is LoadState.NotLoading && reachedEndOfPagination -> {
             LibraryExpressiveEmptyState(
                 tabId = LibraryTabId.SONGS,
-                storageFilter = storageFilter,
                 bottomBarHeight = bottomBarHeight
             )
         }
